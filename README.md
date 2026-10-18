@@ -30,3 +30,20 @@ The site is then at `https://jbartlett443.github.io/Mainthings/`.
 
 PSA/DNA links straight to the cert. Beckett (BAS), JSA and Fanatics are placeholders. Paste
 their lookup URLs (use `{cert}` where the number goes) in **Settings → COA verification links**.
+
+## Android app (APK, not on the Play Store)
+
+`android/` wraps the standalone page in a native WebView app with a built-in QR scanner, camera
+photo capture, exports saved to **Downloads/SignedVault**, and printing.
+`.github/workflows/android.yml` builds it on every push; builds from `main` are signed with a
+stable key and published as a GitHub release.
+
+Install: on your phone open
+**https://github.com/JBartlett443/Mainthings/releases/latest/download/SignedVault.apk**, open the
+downloaded file, and allow installs from your browser when Android asks.
+
+- Data is stored on the phone (the app doesn't sync with the claude.ai version). Use
+  **Backup** / **Restore** to copy your catalogue between them.
+- To make phone-camera scans of box labels open the app, go to Android **Settings → Apps →
+  SignedVault → Open by default → Add link** and tick `jbartlett443.github.io`. Or use the app's
+  own **Scan** button.

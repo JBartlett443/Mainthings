@@ -226,6 +226,7 @@ td.r,th.r{text-align:right}
     <a href="#labels" data-nav="labels">Labels</a>
     <a href="#settings" data-nav="settings">Settings</a>
   </nav>
+  <button class="hbtn" id="btn-scan" type="button" hidden title="Scan a box QR label"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M4 12h16"/></svg>Scan</button>
   <button class="hbtn" id="btn-backup" type="button" title="Download a full JSON backup"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>Backup</button>
   <label class="hbtn filebtn" title="Restore from a JSON backup"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9m0 0-5 5m5-5 5 5M4 5h16"/></svg>Restore<input type="file" id="restore-file" accept="application/json,.json"></label>
 </div></header>
@@ -329,8 +330,9 @@ const Store = {
       }catch{}
     }
     if(this.db){ state.mode="cloud"; this.subscribeCloud(); }
-    else { state.mode="local"; await this.loadLocal(); }
+    else { state.mode="local"; try{ navigator.storage?.persist?.(); }catch{} await this.loadLocal(); }
     setSync();
+    $("#btn-scan").hidden = !canScan();
   },
   subscribeCloud(){
     const onErr = e => { console.warn(e); toast("Sync problem: "+(e?.message||e?.code||"unknown")); };
@@ -403,6 +405,12 @@ const Store = {
       return;
     }
     const blob = data instanceof Blob ? data : new Blob([data],{type:mime||"application/octet-stream"});
+    if(window.AndroidBridge){
+      const b64 = (await blobToDataURL(blob)).split(",")[1] || "";
+      const r = window.AndroidBridge.saveFile(filename, b64, mime || blob.type || "application/octet-stream");
+      toast(r==="ok" ? "Saved to Downloads/SignedVault" : "Couldn't save the file: "+r);
+      return;
+    }
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},1500);
     toast("Saved "+filename);
   }
@@ -457,7 +465,9 @@ function qrSvg(text){
   for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(dark(r,c)) d+=`M${c+m} ${r+m}h1v1h-1z`;
   return `<svg viewBox="0 0 ${n+2*m} ${n+2*m}" shape-rendering="crispEdges" role="img" aria-label="QR code"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
 }
-function detectedBase(){ return location.href.split("#")[0].split("?")[0]; }
+/* inside the Android app the page runs from a private origin, so labels point at the public web copy (which the app also opens) */
+const APP_PUBLIC_URL = "https://jbartlett443.github.io/Mainthings/";
+function detectedBase(){ return window.AndroidBridge ? APP_PUBLIC_URL : location.href.split("#")[0].split("?")[0]; }
 function baseUrl(){ return (state.settings.baseUrl||"").trim() || detectedBase(); }
 const boxUrl = code => baseUrl().split("#")[0] + "#" + code;
 
@@ -542,7 +552,6 @@ function render(){
   app.innerHTML = html;
   for(const [id,v] of Object.entries(keep)){ const el=document.getElementById(id); if(!el) continue; if(el.type==="checkbox") el.checked=v; else el.value=v; }
   if(focusId){ const f=document.getElementById(focusId); if(f) f.focus(); }
-  afterRender(r);
   if(!sameRoute) window.scrollTo(0,0);
 }
 
@@ -629,7 +638,7 @@ function boxGrid(){
     </a>`;}).join("")}</div>`;
 }
 function viewBoxes(){
-  return `<div class="sect-h"><h1>Boxes</h1><a class="btn primary" href="#boxnew">${ico("plus")}New box</a></div>${boxGrid()}`;
+  return `<div class="sect-h"><h1>Boxes</h1><div class="row">${canScan()?`<button class="btn" type="button" data-act="scan">${ico("qr")}Scan box label</button>`:""}<a class="btn primary" href="#boxnew">${ico("plus")}New box</a></div></div>${boxGrid()}`;
 }
 function viewItems(){
   const q=(state.itemFilter||"").toLowerCase();
@@ -811,7 +820,7 @@ function viewBoxEdit(r){
   <h1>${isNew?"New box":"Edit "+esc(b.code)}</h1>
   <form id="box-form" class="card stack" data-orig="${esc(b?.code||"")}">
     <div class="grid2">
-      <label class="f">Box code<input id="b-code" class="mono" required pattern="[A-Za-z0-9-]{1,40}" value="${esc(b?.code||next)}" autocapitalize="characters"></label>
+      <label class="f">Box code<input id="b-code" class="mono" required pattern="[A-Za-z0-9\\-]{1,40}" value="${esc(b?.code||next)}" autocapitalize="characters"></label>
       <label class="f">Name<input id="b-name" required value="${esc(b?.name||"")}" placeholder="Signed Football Shirts"></label>
     </div>
     <label class="f">Storage location<input id="b-loc" value="${esc(b?.location||"")}" placeholder="Loft Rack B"></label>
@@ -874,7 +883,57 @@ function ico(n){
 
 /* ---------- modal ---------- */
 function openModal(html){ $("#modal-sheet").innerHTML=html; $("#modal").hidden=false; }
-function closeModal(){ $("#modal").hidden=true; $("#modal-sheet").innerHTML=""; }
+function closeModal(){ stopScan(); $("#modal").hidden=true; $("#modal-sheet").innerHTML=""; }
+
+/* ---------- in-app QR scanner (Android app and standalone web copy; the claude.ai viewer refuses the camera) ---------- */
+const JSQR_URL = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+const canScan = () => state.mode==="local" && !!navigator.mediaDevices?.getUserMedia;
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("couldn't load "+src)); document.head.appendChild(s); }); }
+function boxFromQR(text){
+  const t=String(text||"").trim(); let code="";
+  try{ const u=new URL(t); code = u.hash.slice(1) || u.searchParams.get("box") || (u.protocol==="signedvault:" ? (u.hostname||u.pathname.replace(/^\/+/,"")) : ""); }
+  catch{ code=t; }
+  code=decodeURIComponent(code||"").trim();
+  return findBox(code)?.code || null;
+}
+function stopScan(){ const s=state.scan; state.scan=null; if(s){ s.stop=true; s.stream?.getTracks().forEach(tr=>tr.stop()); } }
+async function openScanner(){
+  openModal(`<div class="row between"><h2>Scan a box label</h2><button class="btn sm" type="button" id="scan-close">Close</button></div>
+    <video id="scan-video" playsinline muted style="width:100%;border-radius:10px;background:#000;aspect-ratio:1;object-fit:cover"></video>
+    <div class="faint" id="scan-msg" style="font-size:.85rem">Point the camera at a SignedVault QR label.</div>`);
+  $("#scan-close").onclick=closeModal;
+  const scan = state.scan = {stop:false};
+  try{
+    let detector=null;
+    if("BarcodeDetector" in window){ try{ if((await BarcodeDetector.getSupportedFormats()).includes("qr_code")) detector=new BarcodeDetector({formats:["qr_code"]}); }catch{} }
+    if(!detector && typeof window.jsQR!=="function") await loadScript(JSQR_URL);
+    scan.stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+    if(scan.stop){ scan.stream.getTracks().forEach(tr=>tr.stop()); return; }
+    const v=$("#scan-video"); v.srcObject=scan.stream; await v.play();
+    const c=document.createElement("canvas"), g=c.getContext("2d",{willReadFrequently:true});
+    let lastMiss="";
+    const tick = async ()=>{
+      if(scan.stop) return;
+      let text=null;
+      try{
+        if(v.readyState>=2){
+          if(detector){ const r=await detector.detect(v); text=r[0]?.rawValue||null; }
+          else { const w=Math.min(640,v.videoWidth), h=Math.round(v.videoHeight*w/v.videoWidth); c.width=w; c.height=h; g.drawImage(v,0,0,w,h); text=window.jsQR(g.getImageData(0,0,w,h).data,w,h,{inversionAttempts:"dontInvert"})?.data||null; }
+        }
+      }catch{}
+      if(text){
+        const code=boxFromQR(text);
+        if(code){ closeModal(); location.hash=code; toast("Opened "+code); return; }
+        if(text!==lastMiss){ lastMiss=text; const m=$("#scan-msg"); if(m) m.textContent="That QR code isn't one of your boxes: "+text.slice(0,80); }
+      }
+      setTimeout(tick, 120);
+    };
+    tick();
+  }catch(e){
+    console.warn(e);
+    const m=$("#scan-msg"); if(m) m.textContent = e?.name==="NotAllowedError" ? "Camera access was refused. Allow the camera for SignedVault in your phone's settings, then try again." : "The camera couldn't start: "+(e?.message||e);
+  }
+}
 function ask(title, body, okLabel="Confirm", danger=true){
   return new Promise(res=>{
     openModal(`<h2>${esc(title)}</h2><p class="muted" style="margin:0">${body}</p><div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="ask-no">Cancel</button><button class="btn ${danger?"danger":"primary"}" type="button" id="ask-yes">${esc(okLabel)}</button></div>`);
@@ -1064,7 +1123,8 @@ document.addEventListener("click", async e=>{
   else if(act==="selall"){ state.labelSel=new Set(state.boxes.map(b=>b.code.toUpperCase())); render(); }
   else if(act==="selnone"){ state.labelSel=new Set(); render(); }
   else if(act==="labels-pdf"){ labelsPDF(); }
-  else if(act==="print"){ window.print(); }
+  else if(act==="print"){ if(window.AndroidBridge?.print) window.AndroidBridge.print(); else window.print(); }
+  else if(act==="scan"){ openScanner(); }
   else if(act==="report-pdf"){ exportPDF(); }
   else if(act==="report-csv"){ exportCSV(); }
   else if(act==="backup"){ exportBackup(); }
@@ -1077,6 +1137,7 @@ document.addEventListener("click", async e=>{
   }
 });
 $("#btn-backup").addEventListener("click", exportBackup);
+$("#btn-scan").addEventListener("click", openScanner);
 $("#restore-file").addEventListener("change", e=>{ const f=e.target.files[0]; e.target.value=""; if(f) importBackup(f); });
 
 document.addEventListener("input", e=>{
