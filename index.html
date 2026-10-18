@@ -513,6 +513,7 @@ function parseRoute(){
   if(!h){ const qb = new URLSearchParams(location.search).get("box"); if(qb) h = qb; }
   if(!h || h==="home") return {v:"home", key:"home"};
   if(["boxes","items","labels","settings","boxnew"].includes(h)) return {v:h, key:h};
+  if(/^boxnew-[A-Za-z0-9-]{1,40}$/.test(h)) return {v:"boxnew", code:h.slice(7), key:h};
   if(h==="new") return {v:"edit", id:null, box:null, key:"new"};
   let m;
   if((m=h.match(/^new-(.+)$/))) return {v:"edit", id:null, box:m[1], key:h};
@@ -565,7 +566,7 @@ function onEnterRoute(r){
     if(r.id){ const it=findItem(r.id); state.draft = it ? {...clone(it), newPhotos:{}, removed:[]} : null; }
     else state.draft = {id:uid("it_"), title:"", signer:"", category:"Shirt", boxCode:(r.box && findBox(r.box)?.code) || (sortedBoxes()[0]?.code||""), status:"in", statusNote:"", coaProvider:"AFTAL", coaCert:"", verifyUrl:"", sigQuality:"Mint/Clean", placement:"", personalized:false, purchasePrice:"", purchaseDate:"", notes:"", condition:"", query:"", comps:[], photos:{}, createdAt:new Date().toISOString(), newPhotos:{}, removed:[], isNew:true};
   }
-  if(r.v==="labels"){ state.labelSel = new Set(r.code ? [r.code.toUpperCase()] : sortedBoxes().map(b=>b.code.toUpperCase())); }
+  if(r.v==="labels"){ state.blankCodes=null; state.labelSel = new Set(r.code ? [r.code.toUpperCase()] : sortedBoxes().map(b=>b.code.toUpperCase())); }
 }
 
 function thumbHTML(it, slot="main", cls=""){
@@ -649,13 +650,14 @@ function viewItems(){
   const list=state.items.filter(i=>!q || [i.title,i.signer,i.category,i.boxCode,i.coaProvider,i.coaCert].join(" ").toLowerCase().includes(q))
     .sort((a,b)=>(a.title||"").localeCompare(b.title||""));
   return `<div class="sect-h"><h1>All items</h1><a class="btn primary" href="#new">${ico("plus")}Add item</a></div>
+    <details class="card"><summary style="cursor:pointer;font-weight:600">${ico("table")} Export to CSV</summary><div style="margin-top:12px">${csvButtons()}</div></details>
     <input id="item-filter" type="search" placeholder="Search signer, title, cert, box…" value="${esc(state.itemFilter||"")}" data-act="filter">
     ${list.length?`<div class="itemgrid">${list.map(i=>itemCard(i,false)).join("")}</div>`:`<div class="empty">No items match.</div>`}`;
 }
 
 function viewBox(code){
   const b=findBox(code);
-  if(!b) return `<div class="empty"><h2>Box ${esc(code)} isn't in your vault</h2><p>It may have been renamed or removed.</p><a class="btn" href="#boxes">See all boxes</a> <a class="btn primary" href="#boxnew">Create a box</a></div>`;
+  if(!b) return `<div class="empty"><h2>${esc(code.toUpperCase())} isn't set up yet</h2><p>This could be a new label you printed in advance, or a box that was renamed or removed.</p><div class="row" style="justify-content:center"><a class="btn" href="#boxes">See all boxes</a>${/^[A-Za-z0-9-]{1,40}$/.test(code)?`<a class="btn primary" href="#boxnew-${esc(code.toUpperCase())}">${ico("plus")}Set up ${esc(code.toUpperCase())} as a new box</a>`:""}</div></div>`;
   const s=boxStats(b.code);
   const its=boxItems(b.code).sort((x,y)=>({in:0,out:1,sold:2}[x.status||"in"]-{in:0,out:1,sold:2}[y.status||"in"]) || (x.title||"").localeCompare(y.title||""));
   const silAge = b.silicaDate ? Math.floor((Date.now()-parseDate(b.silicaDate))/DAY) : null;
@@ -664,7 +666,7 @@ function viewBox(code){
   <section class="stack">
     <div class="row between" style="align-items:flex-start">
       <div class="stack" style="gap:6px;min-width:0"><div class="row"><span class="code" style="font-size:1rem">${esc(b.code)}</span>${sampleChip(b)}</div><h1>${esc(b.name||"Unnamed box")}</h1><div class="muted">${ico("pin")} ${esc(b.location||"No location set")}</div></div>
-      <div class="row noprint"><a class="btn sm" href="#boxedit-${esc(b.code)}">Edit box</a><a class="btn sm" href="#labels-${esc(b.code)}">${ico("qr")}Label</a></div>
+      <div class="row noprint"><a class="btn sm" href="#boxedit-${esc(b.code)}">Edit box</a><a class="btn sm" href="#labels-${esc(b.code)}">${ico("qr")}Label</a><button class="btn sm" type="button" data-act="stickers" data-code="${esc(b.code)}">${ico("qr")}Item stickers</button></div>
     </div>
     <div class="stats">
       <div class="stat"><div class="label">Items</div><div class="v">${s.count}</div><div class="s">excluding sold</div></div>
@@ -701,7 +703,7 @@ function viewItem(id){
       <div class="stack" style="gap:6px">
         <div class="row">${statusPill(it.status||"in")}<span class="pill">${esc(it.category||"Other")}</span>${sampleChip(it)}</div>
         <h1>${esc(it.title)}</h1>
-        <div class="row"><a class="btn sm" href="#edit-${esc(it.id)}">Edit item</a><button class="btn sm" type="button" data-act="draft" data-id="${esc(it.id)}">${ico("doc")}eBay listing draft</button></div>
+        <div class="row"><a class="btn sm" href="#edit-${esc(it.id)}">Edit item</a><button class="btn sm" type="button" data-act="draft" data-id="${esc(it.id)}">${ico("doc")}eBay listing draft</button><button class="btn sm" type="button" data-act="itemqr" data-id="${esc(it.id)}">${ico("qr")}Item QR</button></div>
       </div>
       <div class="card stack">
         <h3>Authentication</h3>
@@ -824,7 +826,7 @@ function viewBoxEdit(r){
   <h1>${isNew?"New box":"Edit "+esc(b.code)}</h1>
   <form id="box-form" class="card stack" data-orig="${esc(b?.code||"")}">
     <div class="grid2">
-      <label class="f">Box code<input id="b-code" class="mono" required pattern="[A-Za-z0-9\\-]{1,40}" value="${esc(b?.code||next)}" autocapitalize="characters"></label>
+      <label class="f">Box code<input id="b-code" class="mono" required pattern="[A-Za-z0-9\\-]{1,40}" value="${esc(b?.code||(r.code?r.code.toUpperCase():next))}" autocapitalize="characters"></label>
       <label class="f">Name<input id="b-name" required value="${esc(b?.name||"")}" placeholder="Signed Football Shirts"></label>
     </div>
     <label class="f">Storage location<input id="b-loc" value="${esc(b?.location||"")}" placeholder="Loft Rack B"></label>
@@ -850,7 +852,18 @@ function viewLabels(){
     ${inArtifact?"":`<button class="btn" type="button" data-act="print">Print labels</button>`}</div>
     <div class="faint" style="font-size:.78rem">Print the PDF at 100% scale. 8 labels per A4 sheet, 95 × 64 mm.</div>
   </div>
-  <div class="label-sheet">${chosen.map(b=>{const s=boxStats(b.code); return `<div class="qlabel">${qrSvg(boxUrl(b.code))}<div><div class="lc">${esc(b.code)}</div><div class="ln">${esc(b.name)}</div><div class="ll">${esc(b.location||"")}</div><div class="li">${s.count} item${s.count===1?"":"s"}</div></div></div>`;}).join("")}</div>`;
+  <div class="card stack noprint">
+    <h3>New QR labels for future boxes</h3>
+    <div class="faint" style="font-size:.85rem">Print codes now and stick them on empty boxes. Scanning an unused label opens “Set up this box” with the code filled in.</div>
+    <div class="grid3">
+      <label class="f">Prefix<input id="nl-prefix" class="mono" value="BOX-" autocapitalize="characters"></label>
+      <label class="f">Start at<input id="nl-start" type="number" min="0" inputmode="numeric" value="${nextBoxNumber()}"></label>
+      <label class="f">How many<input id="nl-count" type="number" min="1" max="96" inputmode="numeric" value="8"></label>
+    </div>
+    <div class="row"><button class="btn" type="button" data-act="blank-preview">Preview</button><button class="btn primary" type="button" data-act="blank-pdf">${ico("doc")}Download new labels PDF</button></div>
+  </div>
+  ${state.blankCodes?.length?`<h3 class="noprint">New labels (${state.blankCodes.length})</h3>`:""}
+  <div class="label-sheet">${[...chosen.map(boxLabelEntry), ...(state.blankCodes||[]).map(blankLabelEntry)].map(e=>`<div class="qlabel">${qrSvg(boxUrl(e.code))}<div><div class="lc">${esc(e.code)}</div><div class="ln">${esc(e.name)}</div><div class="ll">${esc(e.location)}</div><div class="li">${esc(e.sub)}</div></div></div>`).join("")}</div>`;
 }
 
 function viewSettings(){
@@ -875,6 +888,9 @@ function viewSettings(){
     <div class="muted" style="font-size:.88rem">Storage: <b>${state.mode==="cloud"?"Cloud vault (syncs across your phone and desktop)":"This device only (IndexedDB)"}</b> · ${state.boxes.length} boxes · ${state.items.length} items · ${state.items.reduce((n,i)=>n+Object.values(i.photos||{}).filter(Boolean).length,0)} photos</div>
     <div class="row">
       <button class="btn" type="button" data-act="backup">${ico("down")}Download JSON backup</button>
+    </div>
+    <div class="stack" style="gap:8px"><b>Export to CSV</b><div class="faint" style="font-size:.82rem">Opens in Excel, Numbers or Google Sheets.</div>${csvButtons()}</div>
+    <div class="row">
       <button class="btn danger" type="button" data-act="clearsample" ${nSample?"":"disabled"}>Clear Sample Data${nSample?` (${nSample})`:""}</button>
     </div>
   </section>`;
@@ -893,12 +909,16 @@ function closeModal(){ stopScan(); $("#modal").hidden=true; $("#modal-sheet").in
 const JSQR_URL = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
 const canScan = () => state.mode==="local" && !!navigator.mediaDevices?.getUserMedia;
 function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("couldn't load "+src)); document.head.appendChild(s); }); }
-function boxFromQR(text){
-  const t=String(text||"").trim(); let code="";
-  try{ const u=new URL(t); code = u.hash.slice(1) || u.searchParams.get("box") || (u.protocol==="signedvault:" ? (u.hostname||u.pathname.replace(/^\/+/,"")) : ""); }
+/* where a scanned QR should go: an existing box, an item ("i-<id>"), or an unused box code to set up */
+function qrTarget(text){
+  const t=String(text||"").trim(); let code="", fromLink=false;
+  try{ const u=new URL(t); fromLink=true; code = u.hash.slice(1) || u.searchParams.get("box") || (u.protocol==="signedvault:" ? (u.hostname||u.pathname.replace(/^\/+/,"")) : ""); }
   catch{ code=t; }
   code=decodeURIComponent(code||"").trim();
-  return findBox(code)?.code || null;
+  if(/^i-/.test(code) && findItem(code.slice(2))) return code;
+  const b=findBox(code); if(b) return b.code;
+  if(fromLink && /^[A-Za-z0-9-]{1,40}$/.test(code)) return code.toUpperCase();
+  return null;
 }
 function stopScan(){ const s=state.scan; state.scan=null; if(s){ s.stop=true; s.stream?.getTracks().forEach(tr=>tr.stop()); } }
 async function openScanner(){
@@ -926,8 +946,8 @@ async function openScanner(){
         }
       }catch{}
       if(text){
-        const code=boxFromQR(text);
-        if(code){ closeModal(); location.hash=code; toast("Opened "+code); return; }
+        const dest=qrTarget(text);
+        if(dest){ closeModal(); location.hash=dest; toast(dest.startsWith("i-")?"Opened item":"Opened "+dest); return; }
         if(text!==lastMiss){ lastMiss=text; const m=$("#scan-msg"); if(m) m.textContent="That QR code isn't one of your boxes: "+text.slice(0,80); }
       }
       setTimeout(tick, 120);
@@ -969,6 +989,36 @@ function listingDraft(it){
 
 /* ---------- exports ---------- */
 function csvCell(v){ const s=String(v??""); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; }
+function saveCSV(name, head, rows){
+  const csv = "\ufeff"+[head,...rows].map(r=>r.map(csvCell).join(",")).join("\r\n");
+  Store.save(`SignedVault-${name}-${todayStr()}.csv`, csv, "text/csv");
+}
+function exportItemsCSV(){
+  const head=["Item ID","Title","Signer","Category","Box ID","Box name","Box location","Status","Location note","Condition","COA provider","COA cert number","Verification link","Signature quality","Placement","Personalised","Purchase price (GBP)","Purchase date","Verified value 6-comp mean (GBP)","Median (GBP)","Verified comps used","Comps logged","eBay search phrase","Notes","Photos","Sample","Created","Updated"];
+  const rows=[...state.items].sort((a,b)=>(a.boxCode||"").localeCompare(b.boxCode||"")||(a.title||"").localeCompare(b.title||"")).map(i=>{
+    const v=valuation(i), b=findBox(i.boxCode);
+    return [i.id,i.title,i.signer,i.category,i.boxCode,b?.name,b?.location,STATUS[i.status||"in"],i.statusNote,i.condition,i.coaProvider,i.coaCert,verifyUrl(i),i.sigQuality,i.placement,i.personalized?"Yes":"No",i.purchasePrice===""||i.purchasePrice==null?"":(+i.purchasePrice).toFixed(2),i.purchaseDate,v.mean!=null?v.mean.toFixed(2):"",v.median!=null?v.median.toFixed(2):"",`${v.n}/6`,(i.comps||[]).length,searchQuery(i),i.notes,Object.values(i.photos||{}).filter(Boolean).length,i.sample?"Yes":"",i.createdAt,i.updatedAt];
+  });
+  saveCSV("all-items", head, rows);
+}
+function exportCompsCSV(){
+  const head=["Item ID","Item title","Signer","Sold date","Price (GBP)","Listing URL or title","COA verified","Outlier","Age window","Used in current average"];
+  const rows=[]; const now=Date.now();
+  for(const i of state.items){ const v=valuation(i,now);
+    for(const c of [...(i.comps||[])].sort((a,b)=>parseDate(b.date)-parseDate(a.date))){
+      const w=compWindow(c,now);
+      rows.push([i.id,i.title,i.signer,c.date,(+c.price).toFixed(2),c.ref||c.title||"",c.verified?"Yes":"No",c.outlier?"Yes":"No",w==="6m"?"Within 6 months":w==="12m"?"6-12 months":w==="future"?"Future date":"Over 12 months",v.used.has(c.id)?"Yes":"No"]);
+    }
+  }
+  saveCSV("sold-comps", head, rows);
+}
+function exportBoxesCSV(){
+  const head=["Box ID","Name","Storage location","Silica gel last replaced","Preservation notes","Items (excl. sold)","Checked out","Verified box value (GBP)","QR link"];
+  saveCSV("boxes", head, sortedBoxes().map(b=>{ const s=boxStats(b.code); return [b.code,b.name,b.location,b.silicaDate,b.notes,s.count,s.out,s.value.toFixed(2),boxUrl(b.code)]; }));
+}
+function csvButtons(){
+  return `<div class="row"><button class="btn" type="button" data-act="csv-items">${ico("table")}All items CSV</button><button class="btn" type="button" data-act="csv-comps">${ico("table")}Sold comps CSV</button><button class="btn" type="button" data-act="csv-boxes">${ico("table")}Boxes CSV</button><button class="btn" type="button" data-act="report-csv">${ico("table")}Insurance schedule CSV</button></div>`;
+}
 function exportCSV(){
   const head=["Item ID","Title","Signer","Category","Box ID","Box name","Status","Location note","COA provider","COA cert number","Signature quality","Placement","Personalised","Purchase price (GBP)","Purchase date","Verified value 6-comp mean (GBP)","Median (GBP)","Verified comps used","Photos"];
   const rows = state.items.filter(i=>i.status!=="sold").sort((a,b)=>(a.boxCode||"").localeCompare(b.boxCode||"")||(a.title||"").localeCompare(b.title||"")).map(i=>{
@@ -1041,25 +1091,63 @@ async function exportPDF(){
     doc.text(`Page ${i} of ${pages}`,W-M,H-6,{align:"right"}); }
   await Store.save(`SignedVault-valuation-report-${todayStr()}.pdf`, doc.output("blob"), "application/pdf");
 }
-async function labelsPDF(){
+function nextBoxNumber(prefix="BOX-"){
+  return state.boxes.reduce((m,x)=>{ if(!x.code.startsWith(prefix.toUpperCase())) return m; const n=+(x.code.match(/(\d+)$/)||[])[1]||0; return Math.max(m,n); },0)+1;
+}
+function blankCodesFromForm(){
+  const prefix=($("#nl-prefix")?.value||"BOX-").trim().toUpperCase();
+  const start=Math.max(0, parseInt($("#nl-start")?.value,10)||nextBoxNumber(prefix));
+  const count=Math.min(96, Math.max(1, parseInt($("#nl-count")?.value,10)||8));
+  if(!/^[A-Z0-9-]{0,30}$/.test(prefix)){ toast("Prefix: letters, numbers and dashes only"); return null; }
+  const codes=[]; let n=start;
+  while(codes.length<count && n<start+1000){ const c=prefix+String(n).padStart(2,"0"); if(!findBox(c)) codes.push(c); n++; }
+  return codes;
+}
+const boxLabelEntry = b => { const s=boxStats(b.code); return {code:b.code, name:b.name||"", location:b.location||"", sub:`${s.count} item${s.count===1?"":"s"}`}; };
+const blankLabelEntry = code => ({code, name:"New box", location:"Scan to set up", sub:"Unused label"});
+const itemUrl = it => baseUrl().split("#")[0] + "#i-" + it.id;
+function pdfQR(doc, text, x, y, size){
+  const {n,dark}=qrMatrix(text); const cell=size/n;
+  doc.setFillColor(0); for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(dark(r,c)) doc.rect(x+c*cell,y+r*cell,cell+0.02,cell+0.02,"F");
+}
+async function labelsPDF(entries, filename){
   if(!window.jspdf || typeof qrcode!=="function"){ toast("The label library didn't load. Check your connection and reload."); return; }
-  const chosen=sortedBoxes().filter(b=>state.labelSel.has(b.code.toUpperCase()));
+  const chosen = entries || sortedBoxes().filter(b=>state.labelSel.has(b.code.toUpperCase())).map(boxLabelEntry);
+  if(!chosen.length){ toast("Choose at least one label"); return; }
   const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:"mm",format:"a4"});
   const LW=95,LH=64,GX=6,GY=4, x0=(210-2*LW-GX)/2, y0=(297-4*LH-3*GY)/2;
   chosen.forEach((b,ix)=>{
     const k=ix%8; if(ix && k===0) doc.addPage();
     const x=x0+(k%2)*(LW+GX), y=y0+Math.floor(k/2)*(LH+GY);
     doc.setDrawColor(170); doc.setLineDashPattern([1.2,1.2],0); doc.roundedRect(x,y,LW,LH,2,2); doc.setLineDashPattern([],0);
-    const {n,dark}=qrMatrix(boxUrl(b.code)); const size=44, cell=size/n, qx=x+5, qy=y+(LH-size)/2;
-    doc.setFillColor(0); for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(dark(r,c)) doc.rect(qx+c*cell,qy+r*cell,cell+0.02,cell+0.02,"F");
-    const tx=qx+size+5, tw=LW-(tx-x)-4; const s=boxStats(b.code);
+    const size=44, qx=x+5, qy=y+(LH-size)/2; pdfQR(doc, boxUrl(b.code), qx, qy, size);
+    const tx=qx+size+5, tw=LW-(tx-x)-4;
     doc.setFont("courier","bold"); doc.setFontSize(20); doc.text(b.code,tx,y+17);
     doc.setFont("helvetica","bold"); doc.setFontSize(10.5); const nm=doc.splitTextToSize(b.name||"",tw).slice(0,3); doc.text(nm,tx,y+26);
     doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(70);
     doc.text(doc.splitTextToSize(b.location||"",tw).slice(0,2),tx,y+28+nm.length*4.4);
-    doc.setFont("courier","normal"); doc.text(`${s.count} item${s.count===1?"":"s"}`,tx,y+LH-8); doc.setTextColor(0);
+    doc.setFont("courier","normal"); doc.text(b.sub||"",tx,y+LH-8); doc.setTextColor(0);
   });
-  await Store.save(`SignedVault-box-labels-${todayStr()}.pdf`, doc.output("blob"), "application/pdf");
+  await Store.save(filename || `SignedVault-box-labels-${todayStr()}.pdf`, doc.output("blob"), "application/pdf");
+}
+/* item stickers: 21 per A4 sheet, 63.5 × 38.1 mm (standard L7160-size sticker sheets) */
+async function stickersPDF(items, filename){
+  if(!window.jspdf || typeof qrcode!=="function"){ toast("The label library didn't load. Check your connection and reload."); return; }
+  if(!items.length){ toast("No items to make stickers for"); return; }
+  const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:"mm",format:"a4"});
+  const SW=63.5, SH=38.1, GX=2.5, x0=7.2, y0=15.15;
+  items.forEach((it,ix)=>{
+    const k=ix%21; if(ix && k===0) doc.addPage();
+    const x=x0+(k%3)*(SW+GX), y=y0+Math.floor(k/3)*SH;
+    const size=30, qy=y+(SH-size)/2; pdfQR(doc, itemUrl(it), x+3, qy, size);
+    const tx=x+size+5, tw=SW-size-7;
+    doc.setFont("helvetica","bold"); doc.setFontSize(7.5); const t=doc.splitTextToSize(it.title||"",tw).slice(0,3); doc.text(t,tx,y+7);
+    doc.setFont("helvetica","normal"); doc.setFontSize(6.8); doc.setTextColor(70);
+    let ly=y+7+t.length*3+1.5;
+    [it.signer, it.coaProvider&&it.coaCert?`${it.coaProvider.replace(" (BAS)","")} ${it.coaCert}`:it.coaProvider].filter(Boolean).forEach(line=>{ doc.text(doc.splitTextToSize(line,tw).slice(0,1),tx,ly); ly+=3; });
+    doc.setFont("courier","bold"); doc.setFontSize(8); doc.setTextColor(0); doc.text(it.boxCode||"",tx,y+SH-4);
+  });
+  await Store.save(filename, doc.output("blob"), "application/pdf");
 }
 async function exportBackup(){
   toast("Packing backup…");
@@ -1131,6 +1219,20 @@ document.addEventListener("click", async e=>{
   else if(act==="scan"){ openScanner(); }
   else if(act==="report-pdf"){ exportPDF(); }
   else if(act==="report-csv"){ exportCSV(); }
+  else if(act==="csv-items"){ exportItemsCSV(); }
+  else if(act==="csv-comps"){ exportCompsCSV(); }
+  else if(act==="csv-boxes"){ exportBoxesCSV(); }
+  else if(act==="blank-preview"){ const c=blankCodesFromForm(); if(c){ state.blankCodes=c; render(); } }
+  else if(act==="blank-pdf"){ const c=blankCodesFromForm(); if(c){ state.blankCodes=c; render(); labelsPDF(c.map(blankLabelEntry), `SignedVault-new-box-labels-${c[0]}-to-${c[c.length-1]}.pdf`); } }
+  else if(act==="itemqr"){
+    const it=findItem(t.dataset.id); if(!it) return;
+    openModal(`<div class="row between"><h2>Item QR code</h2><button class="btn sm" type="button" onclick="closeModal()">Close</button></div>
+      <div class="qlabel" style="justify-content:center">${qrSvg(itemUrl(it))}<div><div class="ln">${esc(it.title)}</div><div class="ll">${esc(it.signer||"")}</div><div class="li">${esc(it.boxCode||"")}</div></div></div>
+      <div class="faint" style="font-size:.8rem;overflow-wrap:anywhere">Opens <span class="mono">${esc(itemUrl(it))}</span></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn primary" type="button" data-act="sticker-one" data-id="${esc(it.id)}">${ico("doc")}Download sticker PDF</button></div>`);
+  }
+  else if(act==="sticker-one"){ const it=findItem(t.dataset.id); if(it) stickersPDF([it], `SignedVault-item-sticker-${(it.signer||"item").replace(/[^A-Za-z0-9]+/g,"-")}.pdf`); }
+  else if(act==="stickers"){ const code=t.dataset.code; stickersPDF(boxItems(code).filter(i=>i.status!=="sold").sort((a,b)=>(a.title||"").localeCompare(b.title||"")), `SignedVault-item-stickers-${code}.pdf`); }
   else if(act==="backup"){ exportBackup(); }
   else if(act==="clearsample"){
     const its=state.items.filter(i=>i.sample), bxs=state.boxes.filter(b=>b.sample);
