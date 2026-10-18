@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>SignedVault</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: sticky ink header + content column (max 1120px); bottom tab bar on phones, inline nav on desktop. Archive-box labels in mono. */
+:root{
+  --bg:#EDF0EC; --surface:#FFFFFF; --surface-2:#E3E8E2; --line:#CBD3CB;
+  --ink:#14231E; --ink-2:#4A5B54; --ink-3:#74847D;
+  --brand:#123B33; --brand-ink:#EAF2EE;
+  --accent:#2546D0; --accent-soft:#E2E7FB;
+  --good:#1E7A45; --good-soft:#DDF1E4; --warn:#9A5B00; --warn-soft:#FBEBCF; --bad:#B4322A; --bad-soft:#F8DEDB;
+  --f-display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1513; --surface:#162019; --surface-2:#1E2A25; --line:#2D3B35;
+  --ink:#E3ECE7; --ink-2:#A9B9B1; --ink-3:#7C8C85;
+  --brand:#0A2620; --brand-ink:#E3ECE7;
+  --accent:#8EA2FF; --accent-soft:#232C55;
+  --good:#5CC98A; --good-soft:#15331F; --warn:#F0B44E; --warn-soft:#3A2A10; --bad:#F08077; --bad-soft:#3D1A17;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1513; --surface:#162019; --surface-2:#1E2A25; --line:#2D3B35;
+  --ink:#E3ECE7; --ink-2:#A9B9B1; --ink-3:#7C8C85;
+  --brand:#0A2620; --brand-ink:#E3ECE7;
+  --accent:#8EA2FF; --accent-soft:#232C55;
+  --good:#5CC98A; --good-soft:#15331F; --warn:#F0B44E; --warn-soft:#3A2A10; --bad:#F08077; --bad-soft:#3D1A17;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--brand)}
+h1,h2,h3{font-family:var(--f-display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:1.75rem;font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1.02rem;font-weight:700}
+a{color:var(--accent)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--ink-2)} .faint{color:var(--ink-3)}
+.label{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* header */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--brand);color:var(--brand-ink)}
+header.top .wrap{display:flex;align-items:center;gap:12px;padding-block:10px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;margin-right:auto}
+.brand .mark{width:30px;height:30px;border:2px solid currentColor;border-radius:6px;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:15px}
+.brand b{font-family:var(--f-display);font-size:1.2rem;font-weight:800;letter-spacing:-.01em}
+.sync{font-size:.7rem;opacity:.75;font-family:var(--f-mono)}
+.hbtn{background:transparent;color:inherit;border:1px solid color-mix(in srgb,var(--brand-ink) 40%,transparent);border-radius:8px;padding:6px 10px;font:600 .82rem var(--f-body);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.hbtn:hover{background:color-mix(in srgb,var(--brand-ink) 12%,transparent)}
+nav.desk{display:none;gap:4px}
+nav.desk a{color:inherit;text-decoration:none;padding:6px 10px;border-radius:8px;font-weight:500;font-size:.9rem;opacity:.8}
+nav.desk a.on{opacity:1;background:color-mix(in srgb,var(--brand-ink) 14%,transparent)}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:4px max(8px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;text-decoration:none;color:var(--ink-3);font-size:.7rem;font-weight:600}
+nav.tabs a svg{width:22px;height:22px}
+nav.tabs a.on{color:var(--accent)}
+nav.tabs a.add span.plus{width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--surface);display:grid;place-items:center;margin-top:-14px;box-shadow:0 2px 8px rgb(0 0 0 / .2)}
+@media (min-width:860px){nav.desk{display:flex} nav.tabs{display:none} body{padding-bottom:40px}}
+
+main{padding-block:20px 32px;display:flex;flex-direction:column;gap:22px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.between{justify-content:space-between}
+.stack{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:9px;padding:9px 14px;font:600 .9rem var(--f-body);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;min-height:40px}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+.btn.sm{padding:5px 10px;min-height:32px;font-size:.82rem}
+.btn.big{padding:13px 18px;font-size:1rem;width:100%}
+.btn svg{width:17px;height:17px;flex:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
+.pill.good{background:var(--good-soft);color:var(--good)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.acc{background:var(--accent-soft);color:var(--accent)}
+.pill.sample{background:transparent;border:1px dashed var(--ink-3);color:var(--ink-3)}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:700px){.stats{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;min-width:0}
+.stat .v{font-family:var(--f-display);font-weight:800;font-size:1.45rem;font-variant-numeric:tabular-nums;margin-top:4px;overflow-wrap:anywhere}
+.stat .s{font-size:.78rem;color:var(--ink-3)}
+.stat.hero{grid-column:1/-1;background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.stat.hero .label,.stat.hero .s{color:color-mix(in srgb,var(--brand-ink) 70%,transparent)}
+.stat.hero .v{font-size:2.1rem}
+@media (min-width:700px){.stat.hero{grid-column:span 1}.stat.hero .v{font-size:1.45rem}}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+
+/* boxes */
+.boxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.boxcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px}
+.boxcard:hover{border-color:var(--ink-3)}
+.code{font-family:var(--f-mono);font-weight:600;font-size:.82rem;letter-spacing:.04em;background:var(--ink);color:var(--bg);padding:2px 7px;border-radius:5px;display:inline-block}
+.kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.kv div{min-width:0}
+.kv b{display:block;font-family:var(--f-mono);font-size:.95rem;font-variant-numeric:tabular-nums}
+.kv span{font-size:.7rem;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+
+/* items */
+.itemgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (min-width:640px){.itemgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:980px){.itemgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.icard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.icard.out{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}
+.icard.sold{opacity:.62}
+.thumb{aspect-ratio:1;max-width:100%;width:100%;background:var(--surface-2);display:grid;place-items:center;overflow:hidden;position:relative;text-decoration:none}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .mono-ph{font-family:var(--f-display);font-weight:800;font-size:2.2rem;color:var(--ink-3)}
+.thumb .ph-cat{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.thumb .st{position:absolute;top:8px;left:8px}
+.icard .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.icard .t{font-weight:600;line-height:1.3;color:var(--ink);text-decoration:none;overflow-wrap:anywhere}
+.icard .val{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);color:var(--ink-2);font:600 .72rem var(--f-body);padding:8px 2px;cursor:pointer;border-left:1px solid var(--line)}
+.seg button:first-child{border-left:0}
+.seg button.on[data-s="in"]{background:var(--good-soft);color:var(--good)}
+.seg button.on[data-s="out"]{background:var(--warn-soft);color:var(--warn)}
+.seg button.on[data-s="sold"]{background:var(--surface-2);color:var(--ink)}
+.note-in{width:100%;font-size:.8rem;padding:6px 8px}
+
+/* forms */
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.8rem;font-weight:600;color:var(--ink-2);min-width:0}
+input,select,textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+textarea{min-height:84px;resize:vertical}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent);padding:0;flex:none}
+.grid2{display:grid;grid-template-columns:1fr;gap:12px}
+@media (min-width:640px){.grid2{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr 1fr 1fr}}
+.grid3{display:grid;grid-template-columns:1fr;gap:12px}
+.check{display:flex;align-items:center;gap:8px;font-size:.88rem;font-weight:500;color:var(--ink)}
+.slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.slot{display:flex;flex-direction:column;gap:6px;min-width:0}
+.slot .thumb{border-radius:9px;border:1px dashed var(--ink-3)}
+.slot .thumb.has{border-style:solid;border-color:var(--line)}
+.slot .acts{display:flex;gap:4px;flex-wrap:wrap}
+.slot .acts label{flex:1}
+.slot .t{font-size:.75rem;font-weight:600;color:var(--ink-2);line-height:1.2}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+fieldset{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:12px}
+legend{font-family:var(--f-display);font-weight:700;font-size:1.05rem;margin-bottom:10px;padding:0}
+
+/* item detail */
+.detail{display:grid;grid-template-columns:1fr;gap:18px}
+@media (min-width:900px){.detail{grid-template-columns:minmax(0,5fr) minmax(0,7fr)}}
+.gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.gallery .main{grid-column:1/-1}
+.gallery .thumb{border-radius:9px}
+.gallery .cap{font-size:.7rem;color:var(--ink-3);margin-top:3px}
+dl.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0}
+dl.facts dt{color:var(--ink-3);font-size:.82rem}
+dl.facts dd{margin:0;font-weight:500;overflow-wrap:anywhere}
+.valhead{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end}
+.valhead .big{font-family:var(--f-display);font-weight:800;font-size:2.2rem;font-variant-numeric:tabular-nums;line-height:1}
+.ebaybar{display:flex;flex-direction:column;gap:10px;background:var(--surface-2);border-radius:9px;padding:12px}
+.logger{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:end}
+.logger .wide{grid-column:1/-1}
+@media (min-width:700px){.logger{grid-template-columns:110px 150px minmax(0,1fr) auto auto auto}.logger .wide{grid-column:auto}}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:9px}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:600;background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+tr.used td:first-child{box-shadow:inset 3px 0 0 var(--good)}
+tr.dim td{color:var(--ink-3)}
+td.r,th.r{text-align:right}
+.xbtn{background:none;border:0;color:var(--ink-3);cursor:pointer;font-size:1.1rem;padding:2px 6px}
+.xbtn:hover{color:var(--bad)}
+
+/* labels */
+.label-sheet{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.qlabel{background:#fff;color:#000;border:1px solid #bbb;border-radius:6px;padding:12px;display:flex;gap:12px;align-items:center;font-family:var(--f-body)}
+.qlabel svg{width:108px;height:108px;flex:none}
+.qlabel .lc{font-family:var(--f-mono);font-weight:600;font-size:1.6rem;letter-spacing:.02em;line-height:1}
+.qlabel .ln{font-weight:600;font-size:.95rem;margin-top:6px;line-height:1.2}
+.qlabel .ll{font-size:.8rem;color:#333;margin-top:2px}
+.qlabel .li{font-size:.75rem;color:#555;margin-top:6px;font-family:var(--f-mono)}
+.qlabel > div{min-width:0}
+.boxpick{display:flex;flex-wrap:wrap;gap:8px}
+.boxpick label{display:flex;gap:6px;align-items:center;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 10px;font-size:.85rem;cursor:pointer}
+
+/* misc */
+.banner{border-radius:var(--r);padding:12px 14px;background:var(--warn-soft);color:var(--warn);font-size:.88rem}
+.banner.info{background:var(--accent-soft);color:var(--accent)}
+.empty{text-align:center;padding:30px 16px;color:var(--ink-2);border:1px dashed var(--line);border-radius:var(--r)}
+.crumbs{font-size:.85rem;color:var(--ink-3);display:flex;gap:6px;flex-wrap:wrap}
+.crumbs a{color:var(--ink-2);text-decoration:none}
+.list{display:flex;flex-direction:column}
+.li-row{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;min-width:0}
+.li-row:last-child{border-bottom:0}
+.li-row .thumb{width:48px;flex:none;border-radius:7px}
+.li-row .thumb .mono-ph{font-size:1rem}
+.li-row .grow{flex:1;min-width:0}
+.li-row .grow b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sect-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+#modal{position:fixed;inset:0;z-index:50;background:rgb(0 0 0 / .45);display:flex;align-items:flex-end;justify-content:center;padding:max(16px,env(safe-area-inset-left,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+@media (min-width:640px){#modal{align-items:center}}
+#modal .sheet{background:var(--surface);border-radius:14px;max-width:560px;width:100%;max-height:85vh;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:60;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;font-weight:500;max-width:calc(100% - 32px)}
+@media (min-width:860px){#toast{bottom:24px}}
+.loading{padding:40px 0;text-align:center;color:var(--ink-3)}
+@media (prefers-reduced-motion:no-preference){.icard,.boxcard{transition:border-color .15s}}
+
+@media print{
+  header.top,nav.tabs,.noprint,#toast,body::before{display:none!important}
+  body{background:#fff;padding:0}
+  main{padding:0}
+  .label-sheet{grid-template-columns:1fr 1fr;gap:6mm}
+  .qlabel{break-inside:avoid;border:1px dashed #999}
+}
+</style>
+
+<header class="top"><div class="wrap">
+  <a class="brand" href="#home"><span class="mark">S</span><span><b>SignedVault</b><br><span class="sync" id="sync">connecting…</span></span></a>
+  <nav class="desk" id="desknav">
+    <a href="#home" data-nav="home">Dashboard</a>
+    <a href="#boxes" data-nav="boxes">Boxes</a>
+    <a href="#items" data-nav="items">Items</a>
+    <a href="#labels" data-nav="labels">Labels</a>
+    <a href="#settings" data-nav="settings">Settings</a>
+  </nav>
+  <button class="hbtn" id="btn-backup" type="button" title="Download a full JSON backup"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>Backup</button>
+  <label class="hbtn filebtn" title="Restore from a JSON backup"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9m0 0-5 5m5-5 5 5M4 5h16"/></svg>Restore<input type="file" id="restore-file" accept="application/json,.json"></label>
+</div></header>
+
+<main class="wrap" id="app"><div class="loading">Opening your vault…</div></main>
+
+<nav class="tabs" id="tabs">
+  <a href="#home" data-nav="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13h6V4H4zM14 20h6v-9h-6zM14 4h6v4h-6zM4 20h6v-3H4z"/></svg>Dashboard</a>
+  <a href="#boxes" data-nav="boxes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>Boxes</a>
+  <a href="#new" data-nav="new" class="add"><span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg></span>Add</a>
+  <a href="#labels" data-nav="labels"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/></svg>Labels</a>
+  <a href="#settings" data-nav="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</a>
+</nav>
+
+<div id="modal" hidden><div class="sheet" id="modal-sheet"></div></div>
+<div id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+"use strict";
+/* ---------- constants ---------- */
+const CATEGORIES = ["Shirt","Photo","Book","Boot","Poster","Memorabilia","Other"];
+const COA_PROVIDERS = ["PSA/DNA","Beckett (BAS)","JSA","AFTAL","Fanatics","Official Club","Photo Proof Only","Other"];
+const SIG_QUALITY = ["Mint/Clean","Slight Smudge","Faded"];
+const STATUS = {in:"In Box", out:"Checked Out / On Display", sold:"Sold"};
+const STATUS_SHORT = {in:"In Box", out:"Out", sold:"Sold"};
+const SLOTS = [["main","Main item photo"],["sig","Signature close-up"],["coa","COA / hologram"]];
+const DEFAULT_VERIFY = {
+  "PSA/DNA":"https://www.psacard.com/cert/{cert}",
+  "Beckett (BAS)":"https://www.beckett.com/authentication/verify-certificate?cert={cert}",
+  "JSA":"https://www.spenceloa.com/?cert={cert}",
+  "AFTAL":"https://www.aftal.co.uk/",
+  "Fanatics":"https://www.fanaticsauthentic.com/",
+  "Official Club":"https://www.google.com/search?q={signer}+{cert}+certificate",
+  "Photo Proof Only":"",
+  "Other":"https://www.google.com/search?q={signer}+{cert}+COA"
+};
+const POS_KW = "(COA,AFTAL,Beckett,BAS,PSA,JSA,Fanatics,Official,Authenticated)";
+const NEG_KW = "-reprint -facsimile -printed -copy -rp";
+const DAY = 864e5;
+const gbp = new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP"});
+const gbp0 = new Intl.NumberFormat("en-GB",{style:"currency",currency:"GBP",maximumFractionDigits:0});
+
+/* ---------- helpers ---------- */
+const $ = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const money = v => (v==null||isNaN(v)) ? "—" : gbp.format(v);
+const money0 = v => (v==null||isNaN(v)) ? "—" : gbp0.format(v);
+const todayStr = () => { const d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10); };
+const parseDate = s => s ? Date.parse(s+"T12:00:00") : NaN;
+const fmtDate = s => { const t=parseDate(s); return isNaN(t)?"—":new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); };
+const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const initials = s => (String(s||"?").split(/\s+/).filter(Boolean).map(w=>w[0]).join("").slice(0,2) || "?").toUpperCase();
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2600); }
+async function copyText(text){
+  try{ await navigator.clipboard.writeText(text); toast("Copied"); return true; }
+  catch{ return false; }
+}
+
+/* ---------- valuation ---------- */
+function compAgeDays(c, now=Date.now()){ return (now - parseDate(c.date))/DAY; }
+function compWindow(c, now){ const a=compAgeDays(c,now); if(isNaN(a)) return "none"; if(a<0) return "future"; if(a<=183) return "6m"; if(a<=365) return "12m"; return "old"; }
+function valuation(item, now=Date.now()){
+  const comps = (item.comps||[]).filter(c=>c && !isNaN(+c.price) && +c.price>0);
+  const eligible = comps.filter(c=>c.verified===true && c.outlier!==true && ["6m","12m"].includes(compWindow(c,now)))
+    .sort((a,b)=>parseDate(b.date)-parseDate(a.date)).slice(0,6);
+  const prices = eligible.map(c=>+c.price);
+  const n = prices.length;
+  const mean = n ? prices.reduce((a,b)=>a+b,0)/n : null;
+  let median = null;
+  if(n){ const s=[...prices].sort((a,b)=>a-b); median = n%2 ? s[(n-1)/2] : (s[n/2-1]+s[n/2])/2; }
+  const recent6 = eligible.filter(c=>compWindow(c,now)==="6m").length;
+  return {eligible, used:new Set(eligible.map(c=>c.id)), n, mean, median, recent6, tone: n>=6?"good":n>0?"warn":"bad"};
+}
+const compBadge = v => `<span class="pill ${v.tone}">${v.n}/6 ${v.n===6?"Verified Comps":"Comps"}</span>`;
+
+/* ---------- state ---------- */
+const state = { boxes:[], items:[], settings:{}, loaded:{boxes:false,items:false,settings:false}, mode:"loading", draft:null, routeKey:null, photoCache:new Map() };
+
+/* ---------- local fallback storage (IndexedDB) ---------- */
+const idb = {
+  _db:null,
+  open(){ if(this._db) return this._db; this._db = new Promise((res,rej)=>{ const r=indexedDB.open("signedvault",1); r.onupgradeneeded=()=>r.result.createObjectStore("kv"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); return this._db; },
+  async get(k){ const d=await this.open(); return new Promise((res,rej)=>{ const q=d.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); },
+  async set(k,v){ const d=await this.open(); return new Promise((res,rej)=>{ const t=d.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); },
+  async del(k){ const d=await this.open(); return new Promise((res,rej)=>{ const t=d.transaction("kv","readwrite"); t.objectStore("kv").delete(k); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }
+};
+
+/* ---------- storage adapter: cloud (db + assets) or this device ---------- */
+const Store = {
+  db:null, assets:null, downloads:null,
+  async init(){
+    if(window.claude && typeof window.claude.use==="function"){
+      try{
+        [this.db,this.assets,this.downloads] = await Promise.all(["db","assets","downloads"].map(n=>window.claude.use(n).catch(()=>null)));
+      }catch{}
+    }
+    if(this.db){ state.mode="cloud"; this.subscribeCloud(); }
+    else { state.mode="local"; await this.loadLocal(); }
+    setSync();
+  },
+  subscribeCloud(){
+    const onErr = e => { console.warn(e); toast("Sync problem: "+(e?.message||e?.code||"unknown")); };
+    this.db.collection("boxes").onSnapshot(s=>{ state.boxes=s.docs.map(d=>({...d.data(), code:d.id})); state.loaded.boxes=true; scheduleRender(); }, onErr);
+    this.db.collection("items").onSnapshot(s=>{ state.items=s.docs.map(d=>({...d.data(), id:d.id})); state.loaded.items=true; scheduleRender(); }, onErr);
+    this.db.doc("meta/settings").onSnapshot(s=>{ state.settings = s.exists ? {...s.data()} : {}; state.loaded.settings=true; scheduleRender(); }, onErr);
+  },
+  async loadLocal(){
+    try{
+      state.boxes = (await idb.get("boxes")) || [];
+      state.items = (await idb.get("items")) || [];
+      state.settings = (await idb.get("settings")) || {};
+    }catch(e){ console.warn(e); }
+    state.loaded = {boxes:true,items:true,settings:true};
+    scheduleRender();
+  },
+  async persistLocal(){ await idb.set("boxes",state.boxes); await idb.set("items",state.items); await idb.set("settings",state.settings); scheduleRender(); },
+  async saveBox(b){
+    if(this.db) return this.db.collection("boxes").doc(b.code).set(b);
+    state.boxes = state.boxes.filter(x=>x.code!==b.code).concat([clone(b)]); return this.persistLocal();
+  },
+  async deleteBox(code){
+    if(this.db) return this.db.collection("boxes").doc(code).delete();
+    state.boxes = state.boxes.filter(x=>x.code!==code); return this.persistLocal();
+  },
+  async saveItem(it){
+    it.updatedAt = new Date().toISOString();
+    const body = clone(it); delete body.id;
+    if(this.db) return this.db.collection("items").doc(it.id).set(body);
+    state.items = state.items.filter(x=>x.id!==it.id).concat([clone(it)]); return this.persistLocal();
+  },
+  async deleteItem(id){
+    if(this.db) return this.db.collection("items").doc(id).delete();
+    state.items = state.items.filter(x=>x.id!==id); return this.persistLocal();
+  },
+  async saveSettings(s){
+    if(this.db) return this.db.doc("meta/settings").set(s);
+    state.settings = clone(s); return this.persistLocal();
+  },
+  /* photos: "a:<assetId>" (cloud asset), "p:<docId>" (cloud doc fallback), "l:<key>" (this device) */
+  async putPhoto(blob){
+    if(this.db && this.assets){
+      const r = await this.assets.upload(blob,{type:blob.type||"image/jpeg"});
+      return "a:"+r.id;
+    }
+    const dataUrl = await blobToDataURL(blob);
+    if(this.db){ const ref=this.db.collection("photos").doc(); await ref.set({data:dataUrl}); return "p:"+ref.id; }
+    const k = uid("ph_"); await idb.set("photo:"+k, blob); return "l:"+k;
+  },
+  async deletePhoto(ref){
+    if(!ref) return;
+    try{
+      if(ref.startsWith("a:") && this.assets) await this.assets.delete(ref.slice(2));
+      else if(ref.startsWith("p:") && this.db) await this.db.collection("photos").doc(ref.slice(2)).delete();
+      else if(ref.startsWith("l:")) await idb.del("photo:"+ref.slice(2));
+    }catch(e){ console.warn("photo delete",e); }
+    state.photoCache.delete(ref);
+  },
+  async photoBlob(ref){
+    if(!ref) return null;
+    if(ref.startsWith("a:")){ const r=await fetch("/_blob/"+ref.slice(2)); if(!r.ok) return null; return r.blob(); }
+    if(ref.startsWith("p:") && this.db){ const s=await this.db.collection("photos").doc(ref.slice(2)).get(); if(!s.exists) return null; return (await fetch(s.data().data)).blob(); }
+    if(ref.startsWith("l:")) return (await idb.get("photo:"+ref.slice(2))) || null;
+    return null;
+  },
+  async save(filename, data, mime){
+    if(this.downloads){
+      try{ await this.downloads.save({filename, data}); toast("Saved "+filename); }
+      catch(e){ toast(e?.code==="declined" ? "Download cancelled" : "Couldn't save the file ("+(e?.code||"error")+")"); }
+      return;
+    }
+    const blob = data instanceof Blob ? data : new Blob([data],{type:mime||"application/octet-stream"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},1500);
+    toast("Saved "+filename);
+  }
+};
+function setSync(){
+  const el=$("#sync");
+  el.textContent = state.mode==="cloud" ? "● cloud-synced vault" : state.mode==="local" ? "● saved on this device" : "connecting…";
+}
+const blobToDataURL = b => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error); r.readAsDataURL(b); });
+
+function photoSrc(ref){
+  if(!ref) return "";
+  if(ref.startsWith("a:")) return "/_blob/"+ref.slice(2);
+  const c = state.photoCache.get(ref);
+  if(c) return c==="pending"||c==="missing" ? "" : c;
+  state.photoCache.set(ref,"pending");
+  Store.photoBlob(ref).then(b=>{ state.photoCache.set(ref, b?URL.createObjectURL(b):"missing"); scheduleRender(); }).catch(()=>state.photoCache.set(ref,"missing"));
+  return "";
+}
+
+/* ---------- image compression (canvas → WebP/JPEG, ≤1000px, ~40–80 KB) ---------- */
+async function compressImage(file){
+  let src;
+  try{ src = await createImageBitmap(file, {imageOrientation:"from-image"}); }
+  catch{ src = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=URL.createObjectURL(file); }); }
+  const w0 = src.width, h0 = src.height;
+  let scale = Math.min(1, 1000/w0, 1400/h0);
+  const toBlob = (c,type,q)=>new Promise(r=>c.toBlob(r,type,q));
+  let best=null;
+  for(let pass=0; pass<3; pass++){
+    const c=document.createElement("canvas"); c.width=Math.round(w0*scale); c.height=Math.round(h0*scale);
+    const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height); g.drawImage(src,0,0,c.width,c.height);
+    for(const q of [0.78,0.68,0.58,0.48,0.4]){
+      let b = await toBlob(c,"image/webp",q);
+      if(!b || b.type!=="image/webp") b = await toBlob(c,"image/jpeg",q);
+      best=b;
+      if(b.size<=80*1024) return b;
+    }
+    scale*=0.8;
+  }
+  return best;
+}
+
+/* ---------- QR ---------- */
+function qrMatrix(text){
+  const q = qrcode(0,"M"); q.addData(text); q.make();
+  const n=q.getModuleCount(); return {n, dark:(r,c)=>q.isDark(r,c)};
+}
+function qrSvg(text){
+  if(typeof qrcode!=="function") return `<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#eee"/></svg>`;
+  const {n,dark}=qrMatrix(text); const m=2; let d="";
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(dark(r,c)) d+=`M${c+m} ${r+m}h1v1h-1z`;
+  return `<svg viewBox="0 0 ${n+2*m} ${n+2*m}" shape-rendering="crispEdges" role="img" aria-label="QR code"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}
+function detectedBase(){ return location.href.split("#")[0].split("?")[0]; }
+function baseUrl(){ return (state.settings.baseUrl||"").trim() || detectedBase(); }
+const boxUrl = code => baseUrl().split("#")[0] + "#" + code;
+
+/* ---------- derived ---------- */
+const boxItems = code => state.items.filter(i=>i.boxCode===code);
+function boxStats(code){
+  const its = boxItems(code).filter(i=>i.status!=="sold");
+  let value=0; its.forEach(i=>{ const v=valuation(i); if(v.mean!=null) value+=v.mean; });
+  return {count:its.length, out:its.filter(i=>i.status==="out").length, value};
+}
+function portfolio(){
+  const live = state.items.filter(i=>i.status!=="sold");
+  let value=0, costAll=0, costValued=0, valued=0, unvalued=0;
+  live.forEach(i=>{ const v=valuation(i); const cost=+i.purchasePrice||0; costAll+=cost; if(v.mean!=null){ value+=v.mean; costValued+=cost; valued++; } else unvalued++; });
+  const pl = value-costValued;
+  return {value, cost:costAll, pl, plPct: costValued? pl/costValued*100 : null, valued, unvalued, items:live.length, boxes:state.boxes.length};
+}
+const findBox = code => state.boxes.find(b=>b.code.toUpperCase()===String(code).toUpperCase());
+const findItem = id => state.items.find(i=>i.id===id);
+const sortedBoxes = () => [...state.boxes].sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
+function searchQuery(it){ return (it.query||"").trim() || `${it.signer||it.title||""} signed ${(it.category||"").toLowerCase()}`.trim(); }
+function ebayUrl(q){
+  const full = `${q} ${POS_KW} ${NEG_KW}`;
+  return "https://www.ebay.co.uk/sch/i.html?" + new URLSearchParams({_nkw:full, LH_Sold:"1", LH_Complete:"1", _sop:"13", rt:"nc"}).toString();
+}
+function verifyUrl(it){
+  if((it.verifyUrl||"").trim()) return it.verifyUrl.trim().replace("{cert}",encodeURIComponent(it.coaCert||""));
+  const t = (state.settings.verify||{})[it.coaProvider] ?? DEFAULT_VERIFY[it.coaProvider] ?? "";
+  if(!t) return "";
+  return t.replace("{cert}",encodeURIComponent(it.coaCert||"")).replace("{signer}",encodeURIComponent(it.signer||""));
+}
+
+/* ---------- rendering ---------- */
+let renderQueued=false;
+function scheduleRender(){ if(renderQueued) return; renderQueued=true; requestAnimationFrame(()=>{ renderQueued=false; render(); }); }
+
+function parseRoute(){
+  let h = decodeURIComponent(location.hash.slice(1)).trim();
+  if(!h){ const qb = new URLSearchParams(location.search).get("box"); if(qb) h = qb; }
+  if(!h || h==="home") return {v:"home", key:"home"};
+  if(["boxes","items","labels","settings","boxnew"].includes(h)) return {v:h, key:h};
+  if(h==="new") return {v:"edit", id:null, box:null, key:"new"};
+  let m;
+  if((m=h.match(/^new-(.+)$/))) return {v:"edit", id:null, box:m[1], key:h};
+  if((m=h.match(/^edit-(.+)$/))) return {v:"edit", id:m[1], key:h};
+  if((m=h.match(/^i-(.+)$/))) return {v:"item", id:m[1], key:h};
+  if((m=h.match(/^boxedit-(.+)$/))) return {v:"boxedit", code:m[1], key:h};
+  if((m=h.match(/^labels-(.+)$/))) return {v:"labels", code:m[1], key:"labels"};
+  return {v:"box", code:h, key:"box:"+h.toUpperCase()};
+}
+
+function render(){
+  const app=$("#app");
+  const r=parseRoute();
+  const ready = state.loaded.boxes && state.loaded.items && state.loaded.settings;
+  const navKey = r.v==="box"||r.v==="boxedit"||r.v==="boxnew" ? "boxes" : r.v==="item" ? "items" : r.v==="edit" ? "new" : r.v;
+  $$("[data-nav]").forEach(a=>a.classList.toggle("on", a.dataset.nav===navKey));
+  if(!ready){ app.innerHTML=`<div class="loading">Opening your vault…</div>`; return; }
+
+  // keep what the person is typing across live re-renders of the same view
+  const keep = {};
+  const sameRoute = state.routeKey===r.key;
+  if(sameRoute) $$("input[id],select[id],textarea[id]",app).forEach(el=>{ if(el.type==="file") return; keep[el.id] = el.type==="checkbox" ? el.checked : el.value; });
+  const focusId = sameRoute ? document.activeElement?.id : null;
+  if(!sameRoute){ onEnterRoute(r); }
+  state.routeKey=r.key;
+
+  let html="";
+  try{
+    switch(r.v){
+      case "home": html=viewHome(); break;
+      case "boxes": html=viewBoxes(); break;
+      case "items": html=viewItems(); break;
+      case "box": html=viewBox(r.code); break;
+      case "item": html=viewItem(r.id); break;
+      case "edit": html=viewEdit(r); break;
+      case "boxedit": case "boxnew": html=viewBoxEdit(r); break;
+      case "labels": html=viewLabels(); break;
+      case "settings": html=viewSettings(); break;
+    }
+  }catch(e){ console.error(e); html=`<div class="banner">Something went wrong drawing this page: ${esc(e.message)}</div>`; }
+  app.innerHTML = html;
+  for(const [id,v] of Object.entries(keep)){ const el=document.getElementById(id); if(!el) continue; if(el.type==="checkbox") el.checked=v; else el.value=v; }
+  if(focusId){ const f=document.getElementById(focusId); if(f) f.focus(); }
+  afterRender(r);
+  if(!sameRoute) window.scrollTo(0,0);
+}
+
+function onEnterRoute(r){
+  state.draft=null;
+  if(r.v==="edit"){
+    if(r.id){ const it=findItem(r.id); state.draft = it ? {...clone(it), newPhotos:{}, removed:[]} : null; }
+    else state.draft = {id:uid("it_"), title:"", signer:"", category:"Shirt", boxCode:(r.box && findBox(r.box)?.code) || (sortedBoxes()[0]?.code||""), status:"in", statusNote:"", coaProvider:"AFTAL", coaCert:"", verifyUrl:"", sigQuality:"Mint/Clean", placement:"", personalized:false, purchasePrice:"", purchaseDate:"", notes:"", condition:"", query:"", comps:[], photos:{}, createdAt:new Date().toISOString(), newPhotos:{}, removed:[], isNew:true};
+  }
+  if(r.v==="labels"){ state.labelSel = new Set(r.code ? [r.code.toUpperCase()] : sortedBoxes().map(b=>b.code.toUpperCase())); }
+}
+
+function thumbHTML(it, slot="main", cls=""){
+  const src = photoSrc(it.photos?.[slot]);
+  return src ? `<img src="${esc(src)}" alt="${esc(it.title)}" loading="lazy" ${cls}>`
+    : `<span class="mono-ph" aria-hidden="true">${esc(initials(it.signer||it.title))}</span>${slot==="main"?`<span class="ph-cat">${esc(it.category||"")}</span>`:""}`;
+}
+function statusPill(s){ return `<span class="pill ${s==="in"?"good":s==="out"?"warn":""}">${STATUS_SHORT[s]||"In Box"}</span>`; }
+function sampleChip(o){ return o.sample ? ` <span class="pill sample" title="Example record — remove from Settings">Sample</span>` : ""; }
+
+function itemCard(it, withToggle){
+  const v=valuation(it);
+  return `<article class="icard ${it.status||"in"}">
+    <a class="thumb" href="#i-${esc(it.id)}">${thumbHTML(it)}<span class="st">${statusPill(it.status||"in")}</span></a>
+    <div class="body">
+      <a class="t" href="#i-${esc(it.id)}">${esc(it.title||"Untitled item")}</a>
+      <div class="faint" style="font-size:.8rem">${esc(it.signer||"")}${it.coaProvider?" · "+esc(it.coaProvider):""}</div>
+      <div class="row between"><span class="val">${money0(v.mean)}</span>${compBadge(v)}</div>
+      ${withToggle?`<div class="seg" role="group" aria-label="Item location">
+        ${["in","out","sold"].map(s=>`<button type="button" data-act="status" data-id="${esc(it.id)}" data-s="${s}" class="${(it.status||"in")===s?"on":""}" aria-pressed="${(it.status||"in")===s}">${s==="in"?"In Box":s==="out"?"Check Out":"Sold"}</button>`).join("")}
+      </div>
+      ${(it.status==="out"||it.status==="sold")?`<input class="note-in" id="note-${esc(it.id)}" data-act="note" data-id="${esc(it.id)}" placeholder="${it.status==="out"?"Where is it? e.g. At framers":"Sold to / via"}" value="${esc(it.statusNote||"")}">`:""}`
+      : (it.statusNote && it.status!=="in" ? `<div class="faint" style="font-size:.78rem">📍 ${esc(it.statusNote)}</div>`:"")}
+    </div></article>`;
+}
+
+function viewHome(){
+  const p=portfolio();
+  const out = state.items.filter(i=>i.status==="out");
+  const needs = state.items.filter(i=>i.status!=="sold" && valuation(i).n<6);
+  const hasSample = state.items.some(i=>i.sample)||state.boxes.some(b=>b.sample);
+  return `
+  ${hasSample?`<div class="banner info">You're looking at example data (2 boxes, 3 items). Try it out, then remove it in <a href="#settings">Settings → Clear Sample Data</a>.</div>`:""}
+  ${state.mode==="cloud" && !state.settings.baseUrl ? `<div class="banner">Set your app link in <a href="#settings">Settings</a> so printed QR labels open this vault.</div>`:""}
+  <section class="stack">
+    <div class="sect-h"><h1>Collection</h1><span class="faint" style="font-size:.85rem">Values use the rolling 6-comp verified eBay average</span></div>
+    <div class="stats">
+      <div class="stat hero"><div class="label">Total collection value</div><div class="v">${money0(p.value)}</div><div class="s">${p.valued} of ${p.items} items valued</div></div>
+      <div class="stat"><div class="label">Cost basis</div><div class="v">${money0(p.cost)}</div><div class="s">${p.items} items held</div></div>
+      <div class="stat"><div class="label">Unrealised P/L</div><div class="v ${p.pl>=0?"pos":"neg"}">${p.pl>=0?"+":"−"}${money0(Math.abs(p.pl))}</div><div class="s">${p.plPct==null?"—":(p.plPct>=0?"+":"")+p.plPct.toFixed(1)+"%"}${p.unvalued?` · ${p.unvalued} unvalued excluded`:""}</div></div>
+      <div class="stat"><div class="label">Boxes</div><div class="v">${p.boxes}</div><div class="s">${out.length} item${out.length===1?"":"s"} checked out</div></div>
+      <div class="stat"><div class="label">Verified items</div><div class="v">${p.valued}</div><div class="s">with ≥1 verified comp in 12 mo</div></div>
+    </div>
+  </section>
+
+  <section class="card stack">
+    <div class="sect-h"><h2>Insurance schedule</h2><span class="faint" style="font-size:.82rem">Every held item with photo, box, COA, cert, cost and verified value</span></div>
+    <div class="row">
+      <button class="btn primary" data-act="report-pdf" type="button">${ico("doc")}Valuation report (PDF)</button>
+      <button class="btn" data-act="report-csv" type="button">${ico("table")}Schedule (CSV)</button>
+    </div>
+  </section>
+
+  ${out.length?`<section class="stack"><h2>Out of the box</h2><div class="card list">${out.map(i=>rowHTML(i, `📍 ${esc(i.statusNote||"No note")} · from ${esc(i.boxCode||"—")}`)).join("")}</div></section>`:""}
+
+  <section class="stack">
+    <div class="sect-h"><h2>Boxes</h2><a class="btn sm" href="#boxes">All boxes</a></div>
+    ${boxGrid()}
+  </section>
+
+  ${needs.length?`<section class="stack"><h2>Needs more verified comps</h2><div class="card list">${needs.map(i=>{const v=valuation(i);return rowHTML(i, `${v.n}/6 verified comps · ${money0(v.mean)}`);}).join("")}</div></section>`:""}`;
+}
+function rowHTML(i, sub){
+  return `<a class="li-row" href="#i-${esc(i.id)}"><span class="thumb">${thumbHTML(i)}</span><span class="grow"><b>${esc(i.title)}</b><span class="faint" style="font-size:.8rem">${sub}</span></span>${statusPill(i.status||"in")}</a>`;
+}
+function boxGrid(){
+  const bs=sortedBoxes();
+  if(!bs.length) return `<div class="empty">No boxes yet. <a href="#boxnew">Create your first box</a> to start cataloguing.</div>`;
+  return `<div class="boxgrid">${bs.map(b=>{ const s=boxStats(b.code); return `
+    <a class="boxcard" href="#${esc(b.code)}">
+      <div class="row between"><span class="code">${esc(b.code)}</span>${sampleChip(b)}</div>
+      <div><h3>${esc(b.name||"Unnamed box")}</h3><div class="faint" style="font-size:.85rem">${esc(b.location||"No location set")}</div></div>
+      <div class="kv"><div><b>${s.count}</b><span>Items</span></div><div><b>${s.out}</b><span>Out</span></div><div><b>${money0(s.value)}</b><span>Value</span></div></div>
+    </a>`;}).join("")}</div>`;
+}
+function viewBoxes(){
+  return `<div class="sect-h"><h1>Boxes</h1><a class="btn primary" href="#boxnew">${ico("plus")}New box</a></div>${boxGrid()}`;
+}
+function viewItems(){
+  const q=(state.itemFilter||"").toLowerCase();
+  const list=state.items.filter(i=>!q || [i.title,i.signer,i.category,i.boxCode,i.coaProvider,i.coaCert].join(" ").toLowerCase().includes(q))
+    .sort((a,b)=>(a.title||"").localeCompare(b.title||""));
+  return `<div class="sect-h"><h1>All items</h1><a class="btn primary" href="#new">${ico("plus")}Add item</a></div>
+    <input id="item-filter" type="search" placeholder="Search signer, title, cert, box…" value="${esc(state.itemFilter||"")}" data-act="filter">
+    ${list.length?`<div class="itemgrid">${list.map(i=>itemCard(i,false)).join("")}</div>`:`<div class="empty">No items match.</div>`}`;
+}
+
+function viewBox(code){
+  const b=findBox(code);
+  if(!b) return `<div class="empty"><h2>Box ${esc(code)} isn't in your vault</h2><p>It may have been renamed or removed.</p><a class="btn" href="#boxes">See all boxes</a> <a class="btn primary" href="#boxnew">Create a box</a></div>`;
+  const s=boxStats(b.code);
+  const its=boxItems(b.code).sort((x,y)=>({in:0,out:1,sold:2}[x.status||"in"]-{in:0,out:1,sold:2}[y.status||"in"]) || (x.title||"").localeCompare(y.title||""));
+  const silAge = b.silicaDate ? Math.floor((Date.now()-parseDate(b.silicaDate))/DAY) : null;
+  return `
+  <div class="crumbs"><a href="#boxes">Boxes</a><span>/</span><span>${esc(b.code)}</span></div>
+  <section class="stack">
+    <div class="row between" style="align-items:flex-start">
+      <div class="stack" style="gap:6px;min-width:0"><div class="row"><span class="code" style="font-size:1rem">${esc(b.code)}</span>${sampleChip(b)}</div><h1>${esc(b.name||"Unnamed box")}</h1><div class="muted">${ico("pin")} ${esc(b.location||"No location set")}</div></div>
+      <div class="row noprint"><a class="btn sm" href="#boxedit-${esc(b.code)}">Edit box</a><a class="btn sm" href="#labels-${esc(b.code)}">${ico("qr")}Label</a></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="label">Items</div><div class="v">${s.count}</div><div class="s">excluding sold</div></div>
+      <div class="stat"><div class="label">Checked out</div><div class="v">${s.out}</div><div class="s">${s.out?"see notes on cards":"all present"}</div></div>
+      <div class="stat"><div class="label">Verified box value</div><div class="v">${money0(s.value)}</div><div class="s">6-comp averages</div></div>
+      <div class="stat" style="grid-column:span 2"><div class="label">Preservation</div><div class="s" style="color:var(--ink);font-size:.86rem;margin-top:4px">${b.silicaDate?`Silica gel replaced ${fmtDate(b.silicaDate)} <span class="pill ${silAge>180?"warn":"good"}">${silAge} days ago</span>`:"Silica gel date not recorded"}</div>${b.notes?`<div class="s" style="margin-top:4px">${esc(b.notes)}</div>`:""}</div>
+    </div>
+    <a class="btn primary big" href="#new-${esc(b.code)}">${ico("plus")}Add Item to This Box</a>
+  </section>
+  <section class="stack">
+    <h2>Inside ${esc(b.code)}</h2>
+    ${its.length?`<div class="itemgrid">${its.map(i=>itemCard(i,true)).join("")}</div>`:`<div class="empty">This box is empty. Tap “Add Item to This Box” to catalogue the first piece.</div>`}
+  </section>`;
+}
+
+function viewItem(id){
+  const it=findItem(id);
+  if(!it) return `<div class="empty"><h2>Item not found</h2><a class="btn" href="#items">All items</a></div>`;
+  const v=valuation(it); const now=Date.now();
+  const comps=[...(it.comps||[])].sort((a,b)=>parseDate(b.date)-parseDate(a.date));
+  const q=searchQuery(it); const vurl=verifyUrl(it);
+  const facts=[["Signer",it.signer],["Category",it.category],["Box",it.boxCode?`<a href="#${esc(it.boxCode)}">${esc(it.boxCode)}</a>`:"—",true],["Status",STATUS[it.status||"in"]+(it.statusNote?` — ${esc(it.statusNote)}`:""),true],
+    ["Signature",it.sigQuality],["Placement",it.placement],["Personalised",it.personalized?"Yes":"No"],["Condition",it.condition],["Purchase price",money(+it.purchasePrice||null)],["Purchase date",it.purchaseDate?fmtDate(it.purchaseDate):"—"]];
+  const winPill = w => w==="6m"?`<span class="pill good">≤ 6 mo</span>`:w==="12m"?`<span class="pill warn">6–12 mo</span>`:w==="future"?`<span class="pill bad">Future date</span>`:`<span class="pill">> 12 mo</span>`;
+  return `
+  <div class="crumbs"><a href="#boxes">Boxes</a><span>/</span>${it.boxCode?`<a href="#${esc(it.boxCode)}">${esc(it.boxCode)}</a><span>/</span>`:""}<span>Item</span></div>
+  <div class="detail">
+    <section class="stack">
+      <div class="gallery">
+        ${SLOTS.map(([k,l],ix)=>`<div class="${ix===0?"main":""}"><div class="thumb">${thumbHTML(it,k)}</div><div class="cap">${l}</div></div>`).join("")}
+      </div>
+    </section>
+    <section class="stack">
+      <div class="stack" style="gap:6px">
+        <div class="row">${statusPill(it.status||"in")}<span class="pill">${esc(it.category||"Other")}</span>${sampleChip(it)}</div>
+        <h1>${esc(it.title)}</h1>
+        <div class="row"><a class="btn sm" href="#edit-${esc(it.id)}">Edit item</a><button class="btn sm" type="button" data-act="draft" data-id="${esc(it.id)}">${ico("doc")}eBay listing draft</button></div>
+      </div>
+      <div class="card stack">
+        <h3>Authentication</h3>
+        <div class="row between"><div><div class="label">${esc(it.coaProvider||"No COA")}</div><div class="mono" style="font-size:1.05rem">${esc(it.coaCert||"No cert number")}</div></div>
+          <div class="row">${it.coaCert?`<button class="btn sm" type="button" data-act="copy" data-text="${esc(it.coaCert)}">Copy cert</button>`:""}
+          ${vurl?`<a class="btn sm primary" href="${esc(vurl)}" target="_blank" rel="noopener" data-act="verify" data-text="${esc(it.coaCert||"")}">${ico("check")}Verify cert</a>`:`<span class="faint" style="font-size:.8rem">No online lookup for this provider</span>`}</div></div>
+      </div>
+      <div class="card"><dl class="facts">${facts.map(([k,val,raw])=>`<dt>${k}</dt><dd>${raw?val:esc(val||"—")}</dd>`).join("")}</dl>${it.notes?`<p class="muted" style="margin:12px 0 0">${esc(it.notes)}</p>`:""}</div>
+    </section>
+  </div>
+
+  <section class="card stack">
+    <div class="sect-h"><h2>Verified market value</h2>${compBadge(v)}</div>
+    <div class="valhead">
+      <div><div class="label">Rolling 6-comp average</div><div class="big">${money(v.mean)}</div></div>
+      <div><div class="label">Median</div><div class="mono" style="font-size:1.3rem;font-weight:600">${money(v.median)}</div></div>
+      <div><div class="label">Cost</div><div class="mono" style="font-size:1.3rem;font-weight:600">${money(+it.purchasePrice||null)}</div></div>
+      ${v.mean!=null && +it.purchasePrice ? `<div><div class="label">P/L</div><div class="mono ${v.mean-it.purchasePrice>=0?"pos":"neg"}" style="font-size:1.3rem;font-weight:600">${v.mean-it.purchasePrice>=0?"+":"−"}${money(Math.abs(v.mean-it.purchasePrice))}</div></div>`:""}
+    </div>
+    <p class="faint" style="margin:0;font-size:.8rem">Uses only COA-verified, non-outlier sales from the last 12 months — the most recent 6. ${v.n?`${v.recent6} of ${v.n} within 6 months.`:""}</p>
+
+    <div class="ebaybar">
+      <label class="f" for="q-${esc(it.id)}">eBay UK search phrase</label>
+      <div class="row" style="flex-wrap:nowrap"><input id="q-${esc(it.id)}" data-act="query" data-id="${esc(it.id)}" value="${esc(q)}">
+      </div>
+      <a class="btn primary" id="ebay-link" href="${esc(ebayUrl(q))}" target="_blank" rel="noopener">${ico("search")}Launch Verified eBay UK Sold Search</a>
+      <div class="faint" style="font-size:.75rem;overflow-wrap:anywhere">Sold + completed only · adds <span class="mono">${esc(POS_KW)}</span> and <span class="mono">${esc(NEG_KW)}</span></div>
+      <form class="logger" id="logger" data-id="${esc(it.id)}">
+        <label class="f">Price £<input id="c-price" inputmode="decimal" type="number" step="0.01" min="0" placeholder="0.00" required></label>
+        <label class="f">Sold date<input id="c-date" type="date" value="${todayStr()}" required></label>
+        <label class="f wide">eBay URL or title<input id="c-ref" placeholder="Paste listing link or title"></label>
+        <label class="check"><input id="c-ver" type="checkbox" checked>COA verified</label>
+        <label class="check"><input id="c-out" type="checkbox">Outlier</label>
+        <button class="btn primary" type="submit">Log comp</button>
+      </form>
+    </div>
+
+    ${comps.length?`<div class="tbl-wrap"><table>
+      <thead><tr><th>Sold</th><th>Window</th><th class="r">Price</th><th>Listing</th><th>COA verified</th><th>Outlier</th><th></th></tr></thead>
+      <tbody>${comps.map(c=>{ const w=compWindow(c,now); const used=v.used.has(c.id); const isUrl=/^https?:\/\//i.test(c.ref||"");
+        return `<tr class="${used?"used":"dim"}">
+          <td class="mono">${fmtDate(c.date)}</td><td>${winPill(w)}</td><td class="r mono">${money(+c.price)}</td>
+          <td style="max-width:260px;overflow-wrap:anywhere">${isUrl?`<a href="${esc(c.ref)}" target="_blank" rel="noopener">${esc(c.title||"eBay listing")}</a>`:esc(c.ref||c.title||"—")}</td>
+          <td><input type="checkbox" data-act="cver" data-id="${esc(it.id)}" data-c="${esc(c.id)}" ${c.verified?"checked":""} aria-label="COA verified"></td>
+          <td><input type="checkbox" data-act="cout" data-id="${esc(it.id)}" data-c="${esc(c.id)}" ${c.outlier?"checked":""} aria-label="Exclude as outlier"></td>
+          <td><button class="xbtn" type="button" data-act="cdel" data-id="${esc(it.id)}" data-c="${esc(c.id)}" aria-label="Delete comp">×</button></td></tr>`;}).join("")}</tbody></table></div>
+      <div class="faint" style="font-size:.78rem">Green edge = used in the current average.</div>`
+    :`<div class="empty">No sold comps logged yet. Launch the eBay search, then log up to 6 verified sales above.</div>`}
+  </section>`;
+}
+
+function viewEdit(r){
+  const d=state.draft;
+  if(!d) return `<div class="empty"><h2>Item not found</h2><a class="btn" href="#items">All items</a></div>`;
+  if(!state.boxes.length) return `<div class="empty"><h2>Create a box first</h2><p>Every item lives in a box so its QR label can find it.</p><a class="btn primary" href="#boxnew">New box</a></div>`;
+  const opt=(list,val)=>list.map(x=>`<option ${x===val?"selected":""}>${esc(x)}</option>`).join("");
+  return `
+  <div class="crumbs"><a href="${d.isNew?(d.boxCode?"#"+esc(d.boxCode):"#boxes"):"#i-"+esc(d.id)}">← Back</a></div>
+  <h1>${d.isNew?"Add item":"Edit item"}</h1>
+  <form id="item-form" class="stack" style="gap:18px">
+    <section class="card"><fieldset><legend>Photos</legend>
+      <div class="slots">${SLOTS.map(([k,l])=>{ const nb=d.newPhotos[k]; const src = nb ? nb.url : photoSrc(d.photos?.[k]);
+        return `<div class="slot"><div class="t">${l}</div><div class="thumb ${src?"has":""}">${src?`<img src="${esc(src)}" alt="">`:`<span class="faint" style="font-size:.75rem;text-align:center;padding:6px">No photo</span>`}</div>
+        <div class="acts"><label class="btn sm filebtn">${ico("camera")}Camera<input type="file" accept="image/*" capture="environment" data-slot="${k}"></label>
+        <label class="btn sm filebtn">Library<input type="file" accept="image/*" data-slot="${k}"></label>
+        ${src?`<button class="btn sm ghost" type="button" data-act="rmphoto" data-slot="${k}">Remove</button>`:""}</div>
+        ${nb?`<div class="faint mono" style="font-size:.7rem">${Math.round(nb.blob.size/1024)} KB · ${nb.w}px</div>`:""}</div>`;}).join("")}</div>
+      <div class="faint" style="font-size:.78rem">Photos are compressed on your phone to about 40–80 KB (max 1000 px wide) before saving.</div>
+    </fieldset></section>
+
+    <section class="card"><fieldset><legend>Item</legend>
+      <label class="f">Title<input id="f-title" required value="${esc(d.title)}" placeholder="e.g. Steven Gerrard signed Liverpool 2005 home shirt"></label>
+      <div class="grid3">
+        <label class="f">Signer<input id="f-signer" value="${esc(d.signer)}" placeholder="Steven Gerrard"></label>
+        <label class="f">Category<select id="f-category">${opt(CATEGORIES,d.category)}</select></label>
+        <label class="f">Box<select id="f-box">${sortedBoxes().map(b=>`<option value="${esc(b.code)}" ${b.code===d.boxCode?"selected":""}>${esc(b.code)} — ${esc(b.name)}</option>`).join("")}</select></label>
+      </div>
+      <div class="grid2">
+        <label class="f">Status<select id="f-status">${Object.entries(STATUS).map(([k,l])=>`<option value="${k}" ${k===(d.status||"in")?"selected":""}>${l}</option>`).join("")}</select></label>
+        <label class="f">Location note<input id="f-note" value="${esc(d.statusNote)}" placeholder="e.g. At framers"></label>
+      </div>
+      <label class="f">Condition<input id="f-condition" value="${esc(d.condition)}" placeholder="e.g. Excellent, unwashed, small mark on sleeve"></label>
+    </fieldset></section>
+
+    <section class="card"><fieldset><legend>Authentication</legend>
+      <div class="grid2">
+        <label class="f">COA provider<select id="f-coa">${opt(COA_PROVIDERS,d.coaProvider)}</select></label>
+        <label class="f">COA certificate / serial number<input id="f-cert" class="mono" value="${esc(d.coaCert)}" autocapitalize="characters"></label>
+      </div>
+      <label class="f">Custom verification link (optional, use {cert})<input id="f-vurl" value="${esc(d.verifyUrl)}" placeholder="https://… ?cert={cert}"></label>
+      <div class="grid3">
+        <label class="f">Signature quality<select id="f-sigq">${opt(SIG_QUALITY,d.sigQuality)}</select></label>
+        <label class="f">Placement<input id="f-place" value="${esc(d.placement)}" placeholder="Front number / Title page"></label>
+        <label class="check" style="align-self:end;padding-bottom:10px"><input id="f-pers" type="checkbox" ${d.personalized?"checked":""}>Personalised</label>
+      </div>
+    </fieldset></section>
+
+    <section class="card"><fieldset><legend>Financials &amp; search</legend>
+      <div class="grid2">
+        <label class="f">Purchase price £<input id="f-price" type="number" step="0.01" min="0" inputmode="decimal" value="${esc(d.purchasePrice)}"></label>
+        <label class="f">Purchase date<input id="f-pdate" type="date" value="${esc(d.purchaseDate)}"></label>
+      </div>
+      <label class="f">eBay search phrase (leave blank to auto-generate)<input id="f-query" value="${esc(d.query)}" placeholder="Steven Gerrard signed shirt"></label>
+      <label class="f">Notes<textarea id="f-notes">${esc(d.notes)}</textarea></label>
+    </fieldset></section>
+
+    <div class="row between">
+      ${d.isNew?"<span></span>":`<button class="btn danger" type="button" data-act="delitem">Delete item</button>`}
+      <div class="row"><a class="btn" href="${d.isNew?(d.boxCode?"#"+esc(d.boxCode):"#boxes"):"#i-"+esc(d.id)}">Cancel</a><button class="btn primary" type="submit" id="save-item">Save item</button></div>
+    </div>
+  </form>`;
+}
+
+function viewBoxEdit(r){
+  const isNew = r.v==="boxnew";
+  const b = isNew ? null : findBox(r.code);
+  if(!isNew && !b) return `<div class="empty">Box not found. <a href="#boxes">All boxes</a></div>`;
+  const next = "BOX-" + String(state.boxes.reduce((m,x)=>{const n=+(x.code.match(/(\d+)$/)||[])[1]||0; return Math.max(m,n);},0)+1).padStart(2,"0");
+  return `<div class="crumbs"><a href="${isNew?"#boxes":"#"+esc(b.code)}">← Back</a></div>
+  <h1>${isNew?"New box":"Edit "+esc(b.code)}</h1>
+  <form id="box-form" class="card stack" data-orig="${esc(b?.code||"")}">
+    <div class="grid2">
+      <label class="f">Box code<input id="b-code" class="mono" required pattern="[A-Za-z0-9-]{1,40}" value="${esc(b?.code||next)}" autocapitalize="characters"></label>
+      <label class="f">Name<input id="b-name" required value="${esc(b?.name||"")}" placeholder="Signed Football Shirts"></label>
+    </div>
+    <label class="f">Storage location<input id="b-loc" value="${esc(b?.location||"")}" placeholder="Loft Rack B"></label>
+    <div class="grid2">
+      <label class="f">Silica gel last replaced<input id="b-sil" type="date" value="${esc(b?.silicaDate||"")}"></label>
+      <label class="f">Preservation notes<input id="b-notes" value="${esc(b?.notes||"")}" placeholder="Acid-free tissue, UV sleeve"></label>
+    </div>
+    <div class="row between">${isNew?"<span></span>":`<button class="btn danger" type="button" data-act="delbox" data-code="${esc(b.code)}">Delete box</button>`}
+    <button class="btn primary" type="submit">Save box</button></div>
+  </form>`;
+}
+
+function viewLabels(){
+  const bs=sortedBoxes(); const sel=state.labelSel||new Set();
+  const chosen=bs.filter(b=>sel.has(b.code.toUpperCase()));
+  const inArtifact = state.mode==="cloud";
+  return `<div class="sect-h noprint"><h1>Box labels</h1><span class="faint" style="font-size:.85rem">Scan with your phone camera to open the box</span></div>
+  ${inArtifact && !state.settings.baseUrl?`<div class="banner noprint">Labels point at <span class="mono">${esc(baseUrl())}</span>. Set your app link in <a href="#settings">Settings</a> first.</div>`:""}
+  <div class="card stack noprint">
+    <div class="row between"><b>Choose boxes</b><div class="row"><button class="btn sm" type="button" data-act="selall">All</button><button class="btn sm" type="button" data-act="selnone">None</button></div></div>
+    <div class="boxpick">${bs.map(b=>`<label><input type="checkbox" data-act="selbox" data-code="${esc(b.code.toUpperCase())}" ${sel.has(b.code.toUpperCase())?"checked":""}><span class="mono">${esc(b.code)}</span></label>`).join("")||`<span class="faint">No boxes yet.</span>`}</div>
+    <div class="row"><button class="btn primary" type="button" data-act="labels-pdf" ${chosen.length?"":"disabled"}>${ico("doc")}Download labels PDF (A4)</button>
+    ${inArtifact?"":`<button class="btn" type="button" data-act="print">Print labels</button>`}</div>
+    <div class="faint" style="font-size:.78rem">Print the PDF at 100% scale. 8 labels per A4 sheet, 95 × 64 mm.</div>
+  </div>
+  <div class="label-sheet">${chosen.map(b=>{const s=boxStats(b.code); return `<div class="qlabel">${qrSvg(boxUrl(b.code))}<div><div class="lc">${esc(b.code)}</div><div class="ln">${esc(b.name)}</div><div class="ll">${esc(b.location||"")}</div><div class="li">${s.count} item${s.count===1?"":"s"}</div></div></div>`;}).join("")}</div>`;
+}
+
+function viewSettings(){
+  const nSample = state.items.filter(i=>i.sample).length + state.boxes.filter(b=>b.sample).length;
+  const ver = {...DEFAULT_VERIFY, ...(state.settings.verify||{})};
+  return `<h1>Settings</h1>
+  <form id="settings-form" class="stack" style="gap:18px">
+    <section class="card stack">
+      <h2>QR code link</h2>
+      <label class="f">Base URL<input id="s-base" type="url" value="${esc(state.settings.baseUrl||"")}" placeholder="${esc(detectedBase())}"></label>
+      <div class="faint" style="font-size:.82rem">Box labels encode <span class="mono">${esc(baseUrl())}#BOX-01</span>. Use the address you open SignedVault from (your claude.ai artifact link or your own hosted copy). Opening <span class="mono">…#BOX-01</span> or <span class="mono">?box=BOX-01</span> jumps straight to that box.</div>
+    </section>
+    <section class="card stack">
+      <h2>COA verification links</h2>
+      <div class="faint" style="font-size:.82rem">Use <span class="mono">{cert}</span> and <span class="mono">{signer}</span> as placeholders. Tapping Verify also copies the cert number, so you can paste it if a site ignores the link.</div>
+      ${COA_PROVIDERS.map((p,ix)=>`<label class="f">${esc(p)}<input id="s-v${ix}" value="${esc(ver[p]||"")}" placeholder="No online lookup"></label>`).join("")}
+    </section>
+    <div class="row"><button class="btn primary" type="submit">Save settings</button></div>
+  </form>
+  <section class="card stack">
+    <h2>Data</h2>
+    <div class="muted" style="font-size:.88rem">Storage: <b>${state.mode==="cloud"?"Cloud vault (syncs across your phone and desktop)":"This device only (IndexedDB)"}</b> · ${state.boxes.length} boxes · ${state.items.length} items · ${state.items.reduce((n,i)=>n+Object.values(i.photos||{}).filter(Boolean).length,0)} photos</div>
+    <div class="row">
+      <button class="btn" type="button" data-act="backup">${ico("down")}Download JSON backup</button>
+      <button class="btn danger" type="button" data-act="clearsample" ${nSample?"":"disabled"}>Clear Sample Data${nSample?` (${nSample})`:""}</button>
+    </div>
+  </section>`;
+}
+
+function ico(n){
+  const p={plus:'<path d="M12 5v14M5 12h14"/>',doc:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 13h6M9 17h6"/>',table:'<path d="M3 5h18v14H3zM3 10h18M9 5v14"/>',pin:'<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',qr:'<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h3v3h-3zM18 18h2v2h-2z"/>',check:'<path d="M5 12l5 5 9-10"/>',search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',camera:'<path d="M4 7h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3.5"/>',down:'<path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/>'}[n]||"";
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+}
+
+/* ---------- modal ---------- */
+function openModal(html){ $("#modal-sheet").innerHTML=html; $("#modal").hidden=false; }
+function closeModal(){ $("#modal").hidden=true; $("#modal-sheet").innerHTML=""; }
+function ask(title, body, okLabel="Confirm", danger=true){
+  return new Promise(res=>{
+    openModal(`<h2>${esc(title)}</h2><p class="muted" style="margin:0">${body}</p><div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="ask-no">Cancel</button><button class="btn ${danger?"danger":"primary"}" type="button" id="ask-yes">${esc(okLabel)}</button></div>`);
+    $("#ask-no").onclick=()=>{closeModal();res(false);}; $("#ask-yes").onclick=()=>{closeModal();res(true);};
+  });
+}
+$("#modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeModal(); });
+
+/* ---------- listing draft ---------- */
+function listingDraft(it){
+  const v=valuation(it);
+  const price = v.mean!=null ? Math.max(0.99, Math.round(v.mean/5)*5 - 0.01) : null;
+  const title = `${it.signer||""} Hand Signed ${it.category||""} ${it.coaProvider&&it.coaProvider!=="Photo Proof Only"?it.coaProvider.replace(" (BAS)","")+" COA":""}`.replace(/\s+/g," ").trim().slice(0,80);
+  const lines = [
+    `TITLE: ${title}`, "",
+    `${it.title}`, "",
+    `Hand signed by ${it.signer||"the signer"}.`,
+    `• Item: ${it.category||"Memorabilia"}${it.condition?` — condition: ${it.condition}`:""}`,
+    `• Signature: ${it.sigQuality||"—"}${it.placement?`, signed on the ${it.placement.toLowerCase()}`:""}`,
+    `• Personalised: ${it.personalized?"Yes":"No"}`,
+    `• Authentication: ${it.coaProvider||"—"}${it.coaCert?` — certificate/serial no. ${it.coaCert}`:""}`,
+    it.coaCert && verifyUrl(it) ? `• Verify the certificate yourself: ${verifyUrl(it)}` : null,
+    "", "Photos show the actual item, the signature close-up and the COA/hologram.",
+    "Stored in a smoke-free home in acid-free archival storage. Carefully packed and sent tracked & signed for.",
+    "", price!=null ? `SUGGESTED PRICE: ${gbp.format(price)} (based on the average of ${v.n} verified eBay UK sold comp${v.n===1?"":"s"}: ${gbp.format(v.mean)}, median ${gbp.format(v.median)})` : "SUGGESTED PRICE: log verified sold comps to get a suggestion."
+  ].filter(x=>x!==null);
+  return lines.join("\n");
+}
+
+/* ---------- exports ---------- */
+function csvCell(v){ const s=String(v??""); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; }
+function exportCSV(){
+  const head=["Item ID","Title","Signer","Category","Box ID","Box name","Status","Location note","COA provider","COA cert number","Signature quality","Placement","Personalised","Purchase price (GBP)","Purchase date","Verified value 6-comp mean (GBP)","Median (GBP)","Verified comps used","Photos"];
+  const rows = state.items.filter(i=>i.status!=="sold").sort((a,b)=>(a.boxCode||"").localeCompare(b.boxCode||"")||(a.title||"").localeCompare(b.title||"")).map(i=>{
+    const v=valuation(i); const b=findBox(i.boxCode);
+    return [i.id,i.title,i.signer,i.category,i.boxCode,b?.name,STATUS[i.status||"in"],i.statusNote,i.coaProvider,i.coaCert,i.sigQuality,i.placement,i.personalized?"Yes":"No",(+i.purchasePrice||0).toFixed(2),i.purchaseDate,v.mean!=null?v.mean.toFixed(2):"",v.median!=null?v.median.toFixed(2):"",`${v.n}/6`,Object.values(i.photos||{}).filter(Boolean).length];
+  });
+  const p=portfolio();
+  rows.push([]); rows.push(["TOTAL","","","","","","","","","","","","",p.cost.toFixed(2),"",p.value.toFixed(2)]);
+  const csv = "﻿"+[head,...rows].map(r=>r.map(csvCell).join(",")).join("\r\n");
+  Store.save(`SignedVault-insurance-schedule-${todayStr()}.csv`, csv, "text/csv");
+}
+async function thumbDataURL(ref, px=200){
+  try{
+    const b = await Store.photoBlob(ref); if(!b) return null;
+    const bmp = await createImageBitmap(b);
+    const c=document.createElement("canvas"); c.width=c.height=px; const g=c.getContext("2d");
+    const s=Math.max(px/bmp.width,px/bmp.height); const w=bmp.width*s,h=bmp.height*s;
+    g.fillStyle="#fff"; g.fillRect(0,0,px,px); g.drawImage(bmp,(px-w)/2,(px-h)/2,w,h);
+    return c.toDataURL("image/jpeg",0.82);
+  }catch{ return null; }
+}
+const pdfMoney = v => v==null ? "-" : "£"+v.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+async function exportPDF(){
+  if(!window.jspdf){ toast("The PDF library didn't load. Check your connection and reload."); return; }
+  toast("Building valuation report…");
+  const {jsPDF}=window.jspdf; const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+  const W=297,H=210,M=12; const p=portfolio();
+  const items = state.items.filter(i=>i.status!=="sold").sort((a,b)=>(a.boxCode||"").localeCompare(b.boxCode||"")||(a.title||"").localeCompare(b.title||""));
+  const cols=[["Photo",22],["Item / signer",78],["Box",22],["COA provider",30],["Cert no.",32],["Purchase",26],["Verified value",30],["Comps",23]];
+  let y;
+  const header=(first)=>{
+    doc.setFont("helvetica","bold"); doc.setFontSize(first?16:11); doc.text("SignedVault — Insurance Valuation Schedule",M,M+4);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(90);
+    doc.text(`Prepared ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}`,W-M,M+4,{align:"right"});
+    doc.setTextColor(0); y=M+10;
+    if(first){
+      doc.setFontSize(10);
+      const tiles=[["Total verified value",pdfMoney(p.value)],["Cost basis",pdfMoney(p.cost)],["Items held",String(p.items)],["Boxes",String(p.boxes)]];
+      tiles.forEach(([l,v],ix)=>{ const x=M+ix*68; doc.setDrawColor(200); doc.roundedRect(x,y,64,15,1.5,1.5); doc.setFontSize(7.5); doc.setTextColor(110); doc.text(l.toUpperCase(),x+3,y+5); doc.setTextColor(0); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text(v,x+3,y+12); doc.setFont("helvetica","normal"); });
+      y+=21;
+    }
+    doc.setFillColor(232,236,232); doc.rect(M,y,W-2*M,7,"F"); doc.setFontSize(7.5); doc.setFont("helvetica","bold"); doc.setTextColor(60);
+    let x=M+2; cols.forEach(([l,w])=>{ doc.text(l.toUpperCase(),x,y+4.7); x+=w; }); doc.setTextColor(0); doc.setFont("helvetica","normal"); y+=9;
+  };
+  header(true);
+  for(const it of items){
+    const rowH=22;
+    if(y+rowH>H-M-8){ doc.addPage(); header(false); }
+    const v=valuation(it); let x=M+2;
+    const img = it.photos?.main ? await thumbDataURL(it.photos.main) : null;
+    if(img) doc.addImage(img,"JPEG",x,y,19,19); else { doc.setFillColor(238); doc.rect(x,y,19,19,"F"); doc.setFontSize(8); doc.setTextColor(140); doc.text("No photo",x+9.5,y+10.5,{align:"center"}); doc.setTextColor(0); }
+    x+=cols[0][1];
+    doc.setFontSize(9.5); doc.setFont("helvetica","bold"); doc.text(doc.splitTextToSize(it.title||"",cols[1][1]-4).slice(0,2),x,y+4.5);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(90);
+    doc.text(doc.splitTextToSize(`${it.signer||""} · ${it.category||""} · ${it.sigQuality||""}${it.personalized?" · personalised":""}${it.status==="out"?` · OUT: ${it.statusNote||""}`:""}`,cols[1][1]-4).slice(0,2),x,y+13);
+    doc.setTextColor(0); x+=cols[1][1];
+    doc.setFontSize(9); doc.text(it.boxCode||"-",x,y+6); x+=cols[2][1];
+    doc.text(doc.splitTextToSize(it.coaProvider||"-",cols[3][1]-3),x,y+6); x+=cols[3][1];
+    doc.text(doc.splitTextToSize(it.coaCert||"-",cols[4][1]-3),x,y+6); x+=cols[4][1];
+    doc.text(pdfMoney(+it.purchasePrice||null),x,y+6); x+=cols[5][1];
+    doc.setFont("helvetica","bold"); doc.text(pdfMoney(v.mean),x,y+6); doc.setFont("helvetica","normal");
+    doc.setFontSize(7.5); doc.setTextColor(110); if(v.median!=null) doc.text(`median ${pdfMoney(v.median)}`,x,y+11); doc.setTextColor(0); x+=cols[6][1];
+    doc.setFontSize(9); doc.text(`${v.n}/6`,x,y+6);
+    doc.setDrawColor(220); doc.line(M,y+rowH-1.5,W-M,y+rowH-1.5);
+    y+=rowH;
+  }
+  const pages=doc.getNumberOfPages();
+  for(let i=1;i<=pages;i++){ doc.setPage(i); doc.setFontSize(7); doc.setTextColor(120);
+    doc.text("Verified value = mean of the most recent 6 eBay UK sold listings marked COA-verified and not excluded as outliers, sold within the last 12 months. Items without verified comps show '-'.",M,H-6);
+    doc.text(`Page ${i} of ${pages}`,W-M,H-6,{align:"right"}); }
+  await Store.save(`SignedVault-valuation-report-${todayStr()}.pdf`, doc.output("blob"), "application/pdf");
+}
+async function labelsPDF(){
+  if(!window.jspdf || typeof qrcode!=="function"){ toast("The label library didn't load. Check your connection and reload."); return; }
+  const chosen=sortedBoxes().filter(b=>state.labelSel.has(b.code.toUpperCase()));
+  const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:"mm",format:"a4"});
+  const LW=95,LH=64,GX=6,GY=4, x0=(210-2*LW-GX)/2, y0=(297-4*LH-3*GY)/2;
+  chosen.forEach((b,ix)=>{
+    const k=ix%8; if(ix && k===0) doc.addPage();
+    const x=x0+(k%2)*(LW+GX), y=y0+Math.floor(k/2)*(LH+GY);
+    doc.setDrawColor(170); doc.setLineDashPattern([1.2,1.2],0); doc.roundedRect(x,y,LW,LH,2,2); doc.setLineDashPattern([],0);
+    const {n,dark}=qrMatrix(boxUrl(b.code)); const size=44, cell=size/n, qx=x+5, qy=y+(LH-size)/2;
+    doc.setFillColor(0); for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(dark(r,c)) doc.rect(qx+c*cell,qy+r*cell,cell+0.02,cell+0.02,"F");
+    const tx=qx+size+5, tw=LW-(tx-x)-4; const s=boxStats(b.code);
+    doc.setFont("courier","bold"); doc.setFontSize(20); doc.text(b.code,tx,y+17);
+    doc.setFont("helvetica","bold"); doc.setFontSize(10.5); const nm=doc.splitTextToSize(b.name||"",tw).slice(0,3); doc.text(nm,tx,y+26);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(70);
+    doc.text(doc.splitTextToSize(b.location||"",tw).slice(0,2),tx,y+28+nm.length*4.4);
+    doc.setFont("courier","normal"); doc.text(`${s.count} item${s.count===1?"":"s"}`,tx,y+LH-8); doc.setTextColor(0);
+  });
+  await Store.save(`SignedVault-box-labels-${todayStr()}.pdf`, doc.output("blob"), "application/pdf");
+}
+async function exportBackup(){
+  toast("Packing backup…");
+  const photos={};
+  for(const it of state.items) for(const ref of Object.values(it.photos||{})){ if(ref && !photos[ref]){ const b=await Store.photoBlob(ref).catch(()=>null); if(b) photos[ref]=await blobToDataURL(b); } }
+  const data={app:"SignedVault",version:1,exportedAt:new Date().toISOString(),settings:state.settings,boxes:state.boxes,items:state.items,photos};
+  await Store.save(`SignedVault-backup-${todayStr()}.json`, JSON.stringify(data), "application/json");
+}
+async function importBackup(file){
+  let data;
+  try{ data=JSON.parse(await file.text()); }catch{ toast("That file isn't valid JSON."); return; }
+  if(data?.app!=="SignedVault" || !Array.isArray(data.boxes) || !Array.isArray(data.items)){ toast("That file isn't a SignedVault backup."); return; }
+  const ok=await ask("Restore backup?",`This adds <b>${data.boxes.length} boxes</b> and <b>${data.items.length} items</b> from ${esc(fmtDate((data.exportedAt||"").slice(0,10)))}. Records with the same box code or item ID are overwritten; everything else stays.`,"Restore",false);
+  if(!ok) return;
+  toast("Restoring…");
+  try{
+    const refMap={};
+    for(const [ref,url] of Object.entries(data.photos||{})){ try{ const b=await (await fetch(url)).blob(); refMap[ref]=await Store.putPhoto(b); }catch(e){ console.warn(e); } }
+    for(const b of data.boxes){ if(/^[A-Za-z0-9-]{1,40}$/.test(b.code||"")) await Store.saveBox(b); }
+    for(const it of data.items){ if(!it.id) continue; const c=clone(it); c.photos=Object.fromEntries(Object.entries(c.photos||{}).map(([k,r])=>[k,refMap[r]||null]).filter(([,r])=>r)); await Store.saveItem(c); }
+    if(data.settings && Object.keys(data.settings).length && !state.settings.baseUrl) await Store.saveSettings({...data.settings});
+    toast(`Restored ${data.boxes.length} boxes and ${data.items.length} items`);
+  }catch(e){ console.error(e); toast("Restore stopped: "+(e?.message||e?.code||"error")); }
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", async e=>{
+  const t=e.target.closest("[data-act]"); if(!t) return;
+  const act=t.dataset.act;
+  if(t.tagName==="INPUT" && t.type!=="checkbox") return;
+  if(act==="status"){
+    const it=findItem(t.dataset.id); if(!it) return; const c=clone(it); c.status=t.dataset.s; if(c.status==="in") c.statusNote="";
+    try{ await Store.saveItem(c); toast(`${it.title.slice(0,32)} → ${STATUS[c.status]}`); }catch(err){ toast("Couldn't save: "+(err?.message||err?.code)); }
+  }
+  else if(act==="copy"){ if(!(await copyText(t.dataset.text))) toast("Cert: "+t.dataset.text); }
+  else if(act==="verify"){ if(t.dataset.text) navigator.clipboard?.writeText(t.dataset.text).then(()=>toast("Cert number copied — paste it if the site asks"),()=>{}); }
+  else if(act==="draft"){
+    const it=findItem(t.dataset.id); const txt=listingDraft(it);
+    openModal(`<h2>eBay listing draft</h2><textarea id="draft-text" style="min-height:300px;font-size:14px">${esc(txt)}</textarea><div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="d-close">Close</button><button class="btn primary" type="button" id="d-copy">Copy text</button></div>`);
+    $("#d-close").onclick=closeModal;
+    $("#d-copy").onclick=async()=>{ const ta=$("#draft-text"); if(!(await copyText(ta.value))){ ta.focus(); ta.select(); toast("Selected — press copy"); } };
+  }
+  else if(act==="cver"||act==="cout"){
+    const it=findItem(t.dataset.id); const c=clone(it); const comp=c.comps.find(x=>x.id===t.dataset.c); if(!comp) return;
+    if(act==="cver") comp.verified=t.checked; else comp.outlier=t.checked;
+    await Store.saveItem(c).catch(err=>toast("Couldn't save: "+(err?.message||err?.code)));
+  }
+  else if(act==="cdel"){
+    const it=findItem(t.dataset.id); const c=clone(it); c.comps=c.comps.filter(x=>x.id!==t.dataset.c);
+    await Store.saveItem(c).then(()=>toast("Comp removed")).catch(err=>toast("Couldn't save: "+(err?.message||err?.code)));
+  }
+  else if(act==="rmphoto"){ const d=state.draft; const k=t.dataset.slot; if(d.newPhotos[k]) delete d.newPhotos[k]; else if(d.photos[k]){ d.removed.push(d.photos[k]); delete d.photos[k]; } render(); }
+  else if(act==="delitem"){
+    const d=state.draft; if(!(await ask("Delete this item?",`“${esc(d.title)}” and its photos and comps will be removed for good.`,"Delete item"))) return;
+    await Store.deleteItem(d.id); for(const r of Object.values(d.photos||{})) await Store.deletePhoto(r);
+    toast("Item deleted"); location.hash = d.boxCode||"boxes";
+  }
+  else if(act==="delbox"){
+    const code=t.dataset.code; const n=boxItems(code).length;
+    if(n){ openModal(`<h2>Box isn't empty</h2><p class="muted" style="margin:0">${esc(code)} still holds ${n} item${n===1?"":"s"}. Move them to another box (edit each item) before deleting it.</p><div class="row" style="justify-content:flex-end"><button class="btn" type="button" onclick="closeModal()">OK</button></div>`); return; }
+    if(!(await ask("Delete box?",`${esc(code)} will be removed. Printed labels for it will stop working.`,"Delete box"))) return;
+    await Store.deleteBox(code); toast("Box deleted"); location.hash="boxes";
+  }
+  else if(act==="selbox"){ t.checked ? state.labelSel.add(t.dataset.code) : state.labelSel.delete(t.dataset.code); render(); }
+  else if(act==="selall"){ state.labelSel=new Set(state.boxes.map(b=>b.code.toUpperCase())); render(); }
+  else if(act==="selnone"){ state.labelSel=new Set(); render(); }
+  else if(act==="labels-pdf"){ labelsPDF(); }
+  else if(act==="print"){ window.print(); }
+  else if(act==="report-pdf"){ exportPDF(); }
+  else if(act==="report-csv"){ exportCSV(); }
+  else if(act==="backup"){ exportBackup(); }
+  else if(act==="clearsample"){
+    const its=state.items.filter(i=>i.sample), bxs=state.boxes.filter(b=>b.sample);
+    if(!(await ask("Clear sample data?",`Removes ${its.length} example items and ${bxs.length} example boxes. Your own records stay.${bxs.some(b=>boxItems(b.code).some(i=>!i.sample))?" Example boxes that hold your own items are kept.":""}`,"Clear sample data"))) return;
+    for(const i of its){ await Store.deleteItem(i.id); for(const r of Object.values(i.photos||{})) await Store.deletePhoto(r); }
+    for(const b of bxs){ if(!state.items.some(i=>i.boxCode===b.code && !i.sample)) await Store.deleteBox(b.code); }
+    toast("Sample data cleared");
+  }
+});
+$("#btn-backup").addEventListener("click", exportBackup);
+$("#restore-file").addEventListener("change", e=>{ const f=e.target.files[0]; e.target.value=""; if(f) importBackup(f); });
+
+document.addEventListener("input", e=>{
+  const t=e.target;
+  if(t.dataset.act==="query"){ const a=$("#ebay-link"); if(a) a.href=ebayUrl(t.value.trim()||searchQuery(findItem(t.dataset.id)||{})); }
+  if(t.dataset.act==="filter"){ state.itemFilter=t.value; clearTimeout(state._ft); state._ft=setTimeout(render,150); }
+});
+document.addEventListener("change", async e=>{
+  const t=e.target;
+  if(t.dataset.act==="note"){
+    const it=findItem(t.dataset.id); if(!it || (it.statusNote||"")===t.value) return;
+    const c=clone(it); c.statusNote=t.value.trim(); await Store.saveItem(c).then(()=>toast("Location note saved")).catch(err=>toast("Couldn't save: "+(err?.message||err?.code)));
+  }
+  if(t.dataset.act==="query"){
+    const it=findItem(t.dataset.id); if(!it) return; const v=t.value.trim(); if(v===searchQuery(it)) return;
+    const c=clone(it); c.query=v; await Store.saveItem(c).catch(()=>{});
+  }
+  if(t.type==="file" && t.dataset.slot && state.draft){
+    const f=t.files[0]; t.value=""; if(!f) return;
+    try{
+      toast("Compressing photo…");
+      const blob=await compressImage(f); const bmp=await createImageBitmap(blob);
+      const prev=state.draft.newPhotos[t.dataset.slot]; if(prev) URL.revokeObjectURL(prev.url);
+      state.draft.newPhotos[t.dataset.slot]={blob,url:URL.createObjectURL(blob),w:bmp.width};
+      toast(`Photo ready — ${Math.round(blob.size/1024)} KB`); render();
+    }catch(err){ console.error(err); toast("That photo couldn't be read. Try JPEG or PNG."); }
+  }
+});
+document.addEventListener("submit", async e=>{
+  e.preventDefault();
+  const f=e.target;
+  if(f.id==="logger"){
+    const it=findItem(f.dataset.id); if(!it) return;
+    const price=parseFloat($("#c-price").value); const date=$("#c-date").value;
+    if(!(price>0) || !date){ toast("Enter a price and sold date"); return; }
+    const ref=$("#c-ref").value.trim();
+    const comp={id:uid("c_"),price:Math.round(price*100)/100,date,ref,title:/^https?:/i.test(ref)?"":ref,verified:$("#c-ver").checked,outlier:$("#c-out").checked};
+    $("#c-price").value=""; $("#c-ref").value=""; $("#c-out").checked=false; $("#c-ver").checked=true;
+    const c=clone(it); c.comps=[...(c.comps||[]), comp];
+    await Store.saveItem(c).then(()=>toast(`Comp logged: ${gbp.format(comp.price)}`)).catch(err=>toast("Couldn't save: "+(err?.message||err?.code)));
+    $("#c-price")?.focus();
+  }
+  if(f.id==="item-form"){
+    const d=state.draft; const btn=$("#save-item"); btn.disabled=true; btn.textContent="Saving…";
+    try{
+      const it={...d};
+      Object.assign(it,{title:$("#f-title").value.trim(),signer:$("#f-signer").value.trim(),category:$("#f-category").value,boxCode:$("#f-box").value,status:$("#f-status").value,statusNote:$("#f-note").value.trim(),condition:$("#f-condition").value.trim(),
+        coaProvider:$("#f-coa").value,coaCert:$("#f-cert").value.trim(),verifyUrl:$("#f-vurl").value.trim(),sigQuality:$("#f-sigq").value,placement:$("#f-place").value.trim(),personalized:$("#f-pers").checked,
+        purchasePrice:$("#f-price").value===""?"":Math.round(parseFloat($("#f-price").value)*100)/100,purchaseDate:$("#f-pdate").value,query:$("#f-query").value.trim(),notes:$("#f-notes").value.trim()});
+      if(!it.title){ toast("Give the item a title"); throw null; }
+      it.photos={...(d.photos||{})};
+      const replaced=[...d.removed];
+      for(const [k,nb] of Object.entries(d.newPhotos)){ if(it.photos[k]) replaced.push(it.photos[k]); it.photos[k]=await Store.putPhoto(nb.blob); }
+      delete it.newPhotos; delete it.removed; delete it.isNew;
+      await Store.saveItem(it);
+      for(const r of replaced) await Store.deletePhoto(r);
+      toast("Item saved"); location.hash="i-"+it.id;
+    }catch(err){ if(err) { console.error(err); toast("Couldn't save: "+(err?.message||err?.code||"error")); } btn.disabled=false; btn.textContent="Save item"; }
+  }
+  if(f.id==="box-form"){
+    const code=$("#b-code").value.trim().toUpperCase(); const orig=f.dataset.orig;
+    if(!/^[A-Z0-9-]{1,40}$/.test(code)){ toast("Box code: letters, numbers and dashes only"); return; }
+    if(code!==orig && findBox(code)){ toast(`${code} already exists`); return; }
+    const prev=orig?findBox(orig):null;
+    const b={...(prev?clone(prev):{createdAt:new Date().toISOString()}),code,name:$("#b-name").value.trim(),location:$("#b-loc").value.trim(),silicaDate:$("#b-sil").value,notes:$("#b-notes").value.trim()};
+    try{
+      await Store.saveBox(b);
+      if(orig && orig!==code){ for(const it of boxItems(orig)){ const c=clone(it); c.boxCode=code; await Store.saveItem(c); } await Store.deleteBox(orig); }
+      toast("Box saved"); location.hash=code;
+    }catch(err){ toast("Couldn't save: "+(err?.message||err?.code)); }
+  }
+  if(f.id==="settings-form"){
+    const verify={}; COA_PROVIDERS.forEach((p,ix)=>verify[p]=$("#s-v"+ix).value.trim());
+    await Store.saveSettings({...clone(state.settings),baseUrl:$("#s-base").value.trim(),verify}).then(()=>toast("Settings saved")).catch(err=>toast("Couldn't save: "+(err?.message||err?.code)));
+  }
+});
+
+window.addEventListener("hashchange", render);
+render();
+Store.init().catch(e=>{ console.error(e); state.mode="local"; Store.loadLocal(); setSync(); });
+</script>
+
+</body></html>
