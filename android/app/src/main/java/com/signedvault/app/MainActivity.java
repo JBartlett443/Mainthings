@@ -146,7 +146,7 @@ public class MainActivity extends Activity {
         else super.onBackPressed();
     }
 
-    /** Box code from https://jbartlett443.github.io/Mainthings/#BOX-01, ?box=BOX-01 or signedvault://BOX-01. */
+    /** Page target from https://jbartlett443.github.io/Mainthings/#BOX-01 (or #i-<id>), ?box=BOX-01 or signedvault://BOX-01. */
     private static String boxFrom(Uri u) {
         if (u == null) return null;
         String code = null;
@@ -156,7 +156,8 @@ public class MainActivity extends Activity {
             code = u.getFragment();
             if ((code == null || code.isEmpty()) && u.isHierarchical()) code = u.getQueryParameter("box");
         }
-        return code != null && code.matches("[A-Za-z0-9-]{1,40}") ? code.toUpperCase() : null;
+        // box codes (BOX-01) and item stickers (i-<item id>)
+        return code != null && code.matches("[A-Za-z0-9_-]{1,80}") ? code : null;
     }
 
     private void openBox(String box) {
