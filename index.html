@@ -260,14 +260,16 @@ const STATUS_SHORT = {in:"In Box", out:"Out", sold:"Sold"};
 const SLOTS = [["main","Main item photo"],["sig","Signature close-up"],["coa","COA / hologram"]];
 const DEFAULT_VERIFY = {
   "PSA/DNA":"https://www.psacard.com/cert/{cert}",
-  "Beckett (BAS)":"https://www.beckett.com/authentication/verify-certificate?cert={cert}",
-  "JSA":"https://www.spenceloa.com/?cert={cert}",
+  "Beckett (BAS)":"",
+  "JSA":"",
   "AFTAL":"https://www.aftal.co.uk/",
-  "Fanatics":"https://www.fanaticsauthentic.com/",
+  "Fanatics":"",
   "Official Club":"https://www.google.com/search?q={signer}+{cert}+certificate",
   "Photo Proof Only":"",
   "Other":"https://www.google.com/search?q={signer}+{cert}+COA"
 };
+/* lookup links still to be supplied by the owner; shown as placeholders until set in Settings */
+const PENDING_VERIFY = ["Beckett (BAS)","JSA","Fanatics"];
 const POS_KW = "(COA,AFTAL,Beckett,BAS,PSA,JSA,Fanatics,Official,Authenticated)";
 const NEG_KW = "-reprint -facsimile -printed -copy -rp";
 const DAY = 864e5;
@@ -696,7 +698,7 @@ function viewItem(id){
         <h3>Authentication</h3>
         <div class="row between"><div><div class="label">${esc(it.coaProvider||"No COA")}</div><div class="mono" style="font-size:1.05rem">${esc(it.coaCert||"No cert number")}</div></div>
           <div class="row">${it.coaCert?`<button class="btn sm" type="button" data-act="copy" data-text="${esc(it.coaCert)}">Copy cert</button>`:""}
-          ${vurl?`<a class="btn sm primary" href="${esc(vurl)}" target="_blank" rel="noopener" data-act="verify" data-text="${esc(it.coaCert||"")}">${ico("check")}Verify cert</a>`:`<span class="faint" style="font-size:.8rem">No online lookup for this provider</span>`}</div></div>
+          ${vurl?`<a class="btn sm primary" href="${esc(vurl)}" target="_blank" rel="noopener" data-act="verify" data-text="${esc(it.coaCert||"")}">${ico("check")}Verify cert</a>`:PENDING_VERIFY.includes(it.coaProvider)?`<span class="pill warn">Lookup link pending</span><a class="btn sm" href="#settings">Add link</a>`:`<span class="faint" style="font-size:.8rem">No online lookup for this provider</span>`}</div></div>
       </div>
       <div class="card"><dl class="facts">${facts.map(([k,val,raw])=>`<dt>${k}</dt><dd>${raw?val:esc(val||"—")}</dd>`).join("")}</dl>${it.notes?`<p class="muted" style="margin:12px 0 0">${esc(it.notes)}</p>`:""}</div>
     </section>
@@ -855,7 +857,7 @@ function viewSettings(){
     <section class="card stack">
       <h2>COA verification links</h2>
       <div class="faint" style="font-size:.82rem">Use <span class="mono">{cert}</span> and <span class="mono">{signer}</span> as placeholders. Tapping Verify also copies the cert number, so you can paste it if a site ignores the link.</div>
-      ${COA_PROVIDERS.map((p,ix)=>`<label class="f">${esc(p)}<input id="s-v${ix}" value="${esc(ver[p]||"")}" placeholder="No online lookup"></label>`).join("")}
+      ${COA_PROVIDERS.map((p,ix)=>`<label class="f"><span>${esc(p)}${PENDING_VERIFY.includes(p)&&!ver[p]?` <span class="pill warn">Placeholder</span>`:""}</span><input id="s-v${ix}" value="${esc(ver[p]||"")}" placeholder="${PENDING_VERIFY.includes(p)?"Paste the lookup link later, e.g. https://…/verify?cert={cert}":"No online lookup"}"></label>`).join("")}
     </section>
     <div class="row"><button class="btn primary" type="submit">Save settings</button></div>
   </form>

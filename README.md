@@ -19,3 +19,14 @@ verified eBay UK sold-comp valuations, and insurance exports.
 
 Current verified market value = the mean (and median) of the **most recent 6** sold comps that are
 marked COA verified, are not excluded as outliers, and sold within the last 12 months.
+
+## GitHub Pages
+
+`.github/workflows/pages.yml` builds `index.html` and deploys it on every push to `main`.
+One-time setup: repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+The site is then at `https://jbartlett443.github.io/Mainthings/`.
+
+## COA lookup links
+
+PSA/DNA links straight to the cert. Beckett (BAS), JSA and Fanatics are placeholders. Paste
+their lookup URLs (use `{cert}` where the number goes) in **Settings → COA verification links**.
